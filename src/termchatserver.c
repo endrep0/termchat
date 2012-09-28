@@ -7,13 +7,34 @@
 #include <netdb.h>
 #define PORT "1122"
 #define MAX_CHAT_CLIENTS 15
+#define MAXBUF 1024
+
+int server_socket, csock;
+struct addrinfo hints;
+struct addrinfo* res;
+int err;
+struct sockaddr_in6 addr;
+socklen_t addrlen;
+char ips[NI_MAXHOST];
+char servs[NI_MAXSERV];
+char buffer[MAXBUF];
+int len;
+int reuse;
+const char msg_server_full[]="Sorry, the chat server is currently full. Try again later.\n";
 
 // sockets to give to select
 FD_SET socks_to_process;
 // this array will hold the connected client sockets
 int connected_client_socks[MAX_CHAT_CLIENTS];
 
-// creates the list of sockets that select needs to iterate through
+// sets a socket to non-blocking
+void SetNonblocking(int sock) {
+	int opts = fcntl(sock, F_GETFL);
+	opts = (opts | O_NONBLOCK);
+	fcntl(sock, F_SETFL, opts);
+}
+
+// creates the set of sockets that select needs to iterate through
 // to be called from the main loop
 void BuildSelectList() {
 	// empty the set
@@ -28,22 +49,96 @@ void BuildSelectList() {
 			FD_SET(connected_client_socks[i],&socks_to_process)	
 }
 
-int main() {
-	struct addrinfo hints;
-	struct addrinfo* res;
-	int err;
-	struct sockaddr_in6 addr;
-	socklen_t addrlen;
-	char ips[NI_MAXHOST];
-	char servs[NI_MAXSERV];
-	int server_socket, csock;
-	char buf[256];
-	int len;
-	int reuse;
-	const char msg_server_full[]="Sorry, the chat server is currently full. Try again later.\n";
-
-
+// to be called from the main loop
+// in the case select reports that there is at least 1 socket that needs to be read
+void ProcessSocketsToRead() {
+	// if there's a new connection request, select() will mark the socket as readable
+	if (FD_ISSET(server_socket, &socks_to_process)) 
+		HandleNewConnection();
 	
+	// let's iterate through the sockets
+	// if a socket's file descriptor is in the socks_to_process set, then it needs to be read
+	for(int i=0; i<MAX_CHAT_CLIENTS; i++)
+		if (FD_ISSET(connected_client_socks[i], &socks_to_process))
+			ProcessPendingRead(i);
+}
+
+void HandleNewConnection() {
+	int client_socket;
+	short connection_accepted = 0;
+	client_socket = accept(server_socket, (struct sockaddr*)&addr, &addrlen);
+	
+	if (client_socket == -1)
+		printf("Error occured while trying to accept connection\n");
+	
+	else {
+		SetNonblockin(client_socket);
+		// try to get client's ip:port string in a protocol-independent way, using getnameinfo()
+		// we need the size of addr
+		addrlen = sizeof(addr);
+		int getnameinfo_error = getnameinfo((struct sockaddr*)&addr, addrlen, ips, sizeof(ips), servs, sizeof(servs), 0);
+		// check if there's room for our socket
+		for (int i=0; (i < MAX_CHAT_CLIENTS) && (0 == connection_accepted)); i++)
+			if (0 == connected_client_socks(i)) {
+				// we found a free slot, let's accept the client connection
+				connected_client_socks[i]=client_socket;
+				if (0 == getnameinfo_error) 
+					printf("Chat client connection accepted from: %s:%s. Socket descriptor: %d, Socket index: %d\n", ips, servs, client_socket, i);
+				else 
+					printf("Chat client connection accepted. Cannot display client address, an error occured while looking it up.\n");
+				connection_accepted = 1;
+			}
+		}
+		
+		if (0 == connection_accepted) {
+			// went through all slots, and we couldn't put the new connection in any
+			// we need to reject this client then
+			if (0 == getnameinfo_error) 
+				printf("Rejecting client connection from %s:%s, no free slots.\n", ips, servs);
+			else 
+				printf("Rejecting client connection. Cannot display client address, an error occured while looking it up.\n");
+			send(client_socket, msg_server_full, strlen(msg), 0);
+			close(client_socket);
+		}
+}
+
+void ProcessPendingRead(int clientindex)
+{
+	int bytes_read;
+	
+	do {
+		// fill buffer with zeros
+		bzero(buffer, MAXBUF);
+		// receive the data
+		bytes_read = recv(connected_client_socks[clientindex], buffer, MAXBUF, 0);
+		
+		if (0 == bytes_read) {
+			// got disconnected from this client
+			// there was an EOF, and this is read as 0 byte by recv()
+			printf("Disconnected from a client. Socket descriptor: %d, Socket index: %d\n", connected_client_socks[clientindex], clientindex);
+			close(connected_client_socks[clientindex]);
+			connected_client_socks[clientindex] = 0;
+			break;
+		}
+		
+		if (bytes_read > 0) {
+			// the connection is healthy
+			// let's read the data, and send it to the other clients too
+			printf("A client has sent: %s", buffer);
+			for (int i=0; i < MAX_CHAT_CLIENTS, i++) {
+				// don't send it back to the source
+				// TODO: i think 0 needs to rcv it too, so don't put clientindex>0 in if
+				if (i!= clientindex)
+					send(connected_client_socks[i], buffer, strlen(buffer), 0);
+			}
+		}
+	} while (bytes_read > 0);
+}
+	
+
+
+int main() {
+
 	// timeout for select
 	struct timeval select_timeout;
 	int num_of_sockets_to_read;
@@ -79,9 +174,7 @@ int main() {
 	reuse = 1;
 	setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
 	// set the socket to non-blocking
-	int opts = fcntl(server_socket, F_GETFL);
-	opts = (opts | O_NONBLOCK);
-	fcntl(server_socket, F_SETFL, opts);
+	SetNonblocking(&server_socket);
 	
 	// bind the server socket to the address, based on the reply of getaddrinfo()
 	// int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
@@ -123,37 +216,10 @@ int main() {
 		else {
 			ProcessSocketsToRead();
 		}
-		
-		
-		
-		// Cím hosszának beállítása sizeof()-fal
-		addrlen = sizeof(addr);
-		// Fogadjuk a kapcsolodasokat. csock lesz a kliens socket*/
-		// int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
-		while((csock = accept(server_socket, (struct sockaddr*)&addr, &addrlen)) >=0) {
-			// using getnameinfo(), to get client's ip:port string in a protocol independent way
-			// int getnameinfo(const struct sockaddr *sa, socklen_t salen, char *host, size_t hostlen, char *serv, szie_t servlen, int flags);
-			if (getnameinfo((struct sockaddr*)&addr, addrlen, ips, sizeof(ips), servs, sizeof(servs), 0) == 0) {
-				printf("Chat client connection from: %s:%s\n", ips, servs);
-			}
-			// fogadjuk a beérkező csomagokat, és kiírjuk a tartalmát a képernyőre
-			// ssize_t recv(int sockfd, void *buf, size_t len, int flags);
-			while((len = recv(csock, buf, sizeof(buf), 0)) > 0) {
-				write(STDOUT_FILENO, buf, len);
-			}
-			printf("Connection closed.\n");
-			
-			// lezárjuk a kliens socketet
-			// int close(int fd);
-			close(csock);
-		}
-		
-		// lezárjuk a szerver socketet
-		// int close(int fd);
-		close(server_socket);
 	}
 	
-	
+	// maybe some graceful quit when keypressed Q?
+	// close(server_socket);
 	return 0;
 }
 
