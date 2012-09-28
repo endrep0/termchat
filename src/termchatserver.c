@@ -1,5 +1,10 @@
+/* this project is created as a school assignment */
+/* the server's code is largely based on code from the Hungarian book "Linux Programozas" */
+/* by lecturer Gabor Banyasz & Tihamer Levendovszky, 2003 */
+
 #include <stdio.h>
 #include <stdlib.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -23,7 +28,7 @@ int reuse;
 const char msg_server_full[]="Sorry, the chat server is currently full. Try again later.\n";
 
 // sockets to give to select
-FD_SET socks_to_process;
+fd_set socks_to_process;
 // this array will hold the connected client sockets
 int connected_client_socks[MAX_CHAT_CLIENTS];
 
@@ -37,6 +42,7 @@ void SetNonblocking(int sock) {
 // creates the set of sockets that select needs to iterate through
 // to be called from the main loop
 void BuildSelectList() {
+	int i;
 	// empty the set
 	FD_ZERO(&socks_to_process);
 	
@@ -44,42 +50,33 @@ void BuildSelectList() {
 	FD_SET(server_socket, &socks_to_process);
 	
 	// add the client sockets which are connected
-	for(int i=0; i<MAX_CHAT_CLIENTS; i++) 
-		if (NULL != connected_client_socks[i]) 
-			FD_SET(connected_client_socks[i],&socks_to_process)	
+	for(i=0; i<MAX_CHAT_CLIENTS; i++) 
+		if (0 != connected_client_socks[i]) 
+			FD_SET(connected_client_socks[i],&socks_to_process);
 }
 
-// to be called from the main loop
-// in the case select reports that there is at least 1 socket that needs to be read
-void ProcessSocketsToRead() {
-	// if there's a new connection request, select() will mark the socket as readable
-	if (FD_ISSET(server_socket, &socks_to_process)) 
-		HandleNewConnection();
-	
-	// let's iterate through the sockets
-	// if a socket's file descriptor is in the socks_to_process set, then it needs to be read
-	for(int i=0; i<MAX_CHAT_CLIENTS; i++)
-		if (FD_ISSET(connected_client_socks[i], &socks_to_process))
-			ProcessPendingRead(i);
-}
-
-void HandleNewConnection() {
+// if we detect a new incoming connection, let's accept it if we have an empty slot
+void HandleNewConnection(void) {
+	int i;
 	int client_socket;
+	int getnameinfo_error;
 	short connection_accepted = 0;
+	
 	client_socket = accept(server_socket, (struct sockaddr*)&addr, &addrlen);
 	
 	if (client_socket == -1)
 		printf("Error occured while trying to accept connection\n");
 	
 	else {
-		SetNonblockin(client_socket);
+		SetNonblocking(client_socket);
 		// try to get client's ip:port string in a protocol-independent way, using getnameinfo()
 		// we need the size of addr
 		addrlen = sizeof(addr);
-		int getnameinfo_error = getnameinfo((struct sockaddr*)&addr, addrlen, ips, sizeof(ips), servs, sizeof(servs), 0);
+		// TODO: for some reason first one fails
+		getnameinfo_error = getnameinfo((struct sockaddr*)&addr, addrlen, ips, sizeof(ips), servs, sizeof(servs), 0);
 		// check if there's room for our socket
-		for (int i=0; (i < MAX_CHAT_CLIENTS) && (0 == connection_accepted)); i++)
-			if (0 == connected_client_socks(i)) {
+		for (i=0; (i < MAX_CHAT_CLIENTS) && (0 == connection_accepted); i++)
+			if (0 == connected_client_socks[i]) {
 				// we found a free slot, let's accept the client connection
 				connected_client_socks[i]=client_socket;
 				if (0 == getnameinfo_error) 
@@ -97,14 +94,17 @@ void HandleNewConnection() {
 				printf("Rejecting client connection from %s:%s, no free slots.\n", ips, servs);
 			else 
 				printf("Rejecting client connection. Cannot display client address, an error occured while looking it up.\n");
-			send(client_socket, msg_server_full, strlen(msg), 0);
+			send(client_socket, msg_server_full, strlen(msg_server_full), 0);
 			close(client_socket);
 		}
 }
 
+// ProcessPendingRead() to be called when we already know that one client has data to transfer
+// Data is read & sent to the other chat clients
 void ProcessPendingRead(int clientindex)
 {
 	int bytes_read;
+	int i;
 	
 	do {
 		// fill buffer with zeros
@@ -125,7 +125,7 @@ void ProcessPendingRead(int clientindex)
 			// the connection is healthy
 			// let's read the data, and send it to the other clients too
 			printf("A client has sent: %s", buffer);
-			for (int i=0; i < MAX_CHAT_CLIENTS, i++) {
+			for (i=0; i < MAX_CHAT_CLIENTS; i++) {
 				// don't send it back to the source
 				// TODO: i think 0 needs to rcv it too, so don't put clientindex>0 in if
 				if (i!= clientindex)
@@ -134,8 +134,21 @@ void ProcessPendingRead(int clientindex)
 		}
 	} while (bytes_read > 0);
 }
-	
 
+// to be called from the main loop
+// in the case select reports that there is at least 1 socket that needs to be read
+void ProcessSocketsToRead() {
+	int i;
+	// if there's a new connection request, select() will mark the socket as readable
+	if (FD_ISSET(server_socket, &socks_to_process)) 
+		HandleNewConnection();
+	
+	// let's iterate through the sockets
+	// if a socket's file descriptor is in the socks_to_process set, then it needs to be read
+	for(i=0; i<MAX_CHAT_CLIENTS; i++)
+		if (FD_ISSET(connected_client_socks[i], &socks_to_process))
+			ProcessPendingRead(i);
+}
 
 int main() {
 
@@ -143,9 +156,8 @@ int main() {
 	struct timeval select_timeout;
 	int num_of_sockets_to_read;
 	
-	// A címhez kötéshez össze kell állítani a lokális címet, amit a getaddrinfo() függvénnyel fogunk elvégezni.
-	// Az AI_PASSIVE flag haására a címeket INADDR_ANY vagy in6addr_any-vel tölti fel.
-	// Beállítandó hints.ai_flags, hints.ai_family, hints.ai_socktype
+	// let's assemble the local address, which is needed for the binding. we will use getaddrinfo() for this
+	// AI_PASSIVE, so the addresses will be INADDR_ANY or IN6ADDR_ANY
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_INET6;
 	hints.ai_flags = AI_PASSIVE;
@@ -159,13 +171,15 @@ int main() {
 		return -1;
 	}
 
+	// TODO error msg
 	if(res == NULL) return -1;
 	
-	// Létrehozzuk a server socketet getaddrinfo() válasza alapján
+	// creating the server socket now
 	// int socket(int domain, int type, int protocol);
 	server_socket = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
 	if (server_socket < 0) {
 	  perror("socket");
+	  // TODO error msg
 	  return -1;
 	}
 
@@ -174,7 +188,7 @@ int main() {
 	reuse = 1;
 	setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
 	// set the socket to non-blocking
-	SetNonblocking(&server_socket);
+	SetNonblocking(server_socket);
 	
 	// bind the server socket to the address, based on the reply of getaddrinfo()
 	// int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
@@ -218,9 +232,7 @@ int main() {
 		}
 	}
 	
-	// maybe some graceful quit when keypressed Q?
+	// maybe some graceful quit when keypressed Q
 	// close(server_socket);
 	return 0;
 }
-
-
