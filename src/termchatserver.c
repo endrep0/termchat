@@ -1,6 +1,6 @@
 /* this project is created as a school assignment by Endre Palinkas */
-/* the server's code is largely based on code from the Hungarian book "Linux Programozas" */
-/* which was written by lecturer Gabor Banyasz & Tihamer Levendovszky, 2003  */
+/* the server uses network code from the class literature "Linux Programozas" */
+/* written by lecturer Gabor Banyasz & Tihamer Levendovszky, 2003  */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,7 +10,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
-#define PORT "1122"
+#define PORT "2233"
 #define MAX_CHAT_CLIENTS 15
 #define MAXBUF 1024
 
