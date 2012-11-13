@@ -1,6 +1,6 @@
-/* this project is created as a school assignment */
+/* this project is created as a school assignment by Endre Palinkas */
 /* the server's code is largely based on code from the Hungarian book "Linux Programozas" */
-/* by lecturer Gabor Banyasz & Tihamer Levendovszky, 2003 */
+/* which was written by lecturer Gabor Banyasz & Tihamer Levendovszky, 2003  */
 
 #include <stdio.h>
 #include <stdlib.h>
