@@ -12,13 +12,6 @@
 #define PORT "2233"
 #define MAXBUF 1024
 
-// sets a socket to non-blocking
-void SetNonblocking(int sock) {
-	int opts = fcntl(sock, F_GETFL);
-	opts = (opts | O_NONBLOCK);
-	fcntl(sock, F_SETFL, opts);
-}
-
 int main(int argc, char* argv[])
 {
 	struct addrinfo hints;
