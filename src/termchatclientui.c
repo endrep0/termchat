@@ -2,25 +2,33 @@
 /* ncurses5 has to be installed to be able to compile this */
 
 #include <ncurses.h>
-
+#include <string.h>
+#define MAX_MSG_LENGTH 80
 WINDOW *create_newwin(int height, int width, int starty, int startx);
 void destroy_win(WINDOW *local_win);
 
 int main(int argc, char *argv[]) {
-	WINDOW *main_win;
+	// the UI windows, and their parameters
 	WINDOW *nicklist_win;
 	WINDOW *input_win;
 	WINDOW *chat_win;
-	//int main_win_startx, main_win_starty, main_win_width, main_win_height;
+
 	int nicklist_win_startx, nicklist_win_starty, nicklist_win_width, nicklist_win_height;
 	int input_win_startx, input_win_starty, input_win_width, input_win_height;
-	int chat_win_startx, chat_win_starty, chat_win_width, chat_win_height;
-	int ch;
+	int chat_win_startx, chat_win_starty, chat_win_width, chat_win_height, chat_win_currenty, chat_win_currentx;
+
+	// protocol limit	
+	char inputstr[MAX_MSG_LENGTH];
+	// input limit may be reduced during runtime, if the users terminal is too small
+	int max_input_length = MAX_MSG_LENGTH;
+	
+
 	// start curses mode
 	initscr();
 	// line buffering disabled, pass on every key press
-	cbreak();
-	keypad(stdscr, TRUE);
+	//cbreak();
+	// also handle function keys, like F10 for exit
+	//keypad(stdscr, TRUE);
 
 	// set size for windows
 	nicklist_win_height = LINES-3;
@@ -34,36 +42,46 @@ int main(int argc, char *argv[]) {
 	chat_win_height = LINES-3;
 	chat_win_width = COLS-14;
 	chat_win_starty = 0;
-	chat_win_startx = 0;	
+	chat_win_startx = 0;
+	
+	chat_win_currenty=1;
+	chat_win_currentx=1;
 
 	refresh();
-	//main_win = create_newwin(main_win_height, main_win_width, main_win_starty, main_win_startx);
 	nicklist_win = create_newwin(nicklist_win_height, nicklist_win_width, nicklist_win_starty, nicklist_win_startx);
 	input_win = create_newwin(input_win_height, input_win_width, input_win_starty, input_win_startx);
 	chat_win = create_newwin(chat_win_height, chat_win_width, chat_win_starty, chat_win_startx);
-
-	while((ch = getch()) != KEY_F(10))
-	{	switch(ch)
-		{	case KEY_LEFT:
-				//destroy_win(main_win);
-				//main_win = create_newwin(main_win_height, main_win_width, main_win_starty,--main_win_startx);
-				break;
-			case KEY_RIGHT:
-				//destroy_win(main_win);
-				//main_win = create_newwin(main_win_height, main_win_width, main_win_starty,++main_win_startx);
-				break;
-			case KEY_UP:
-				//destroy_win(main_win);
-				//main_win = create_newwin(main_win_height, main_win_width, --main_win_starty,main_win_startx);
-				break;
-			case KEY_DOWN:
-				//destroy_win(main_win);
-				//main_win = create_newwin(main_win_height, main_win_width, ++main_win_starty,main_win_startx);
-				break;	
+	move(LINES-2,1);
+	
+	// if the users terminal size is too small, don't allow him to type messages too long	
+	if (COLS-14<MAX_MSG_LENGTH) max_input_length=COLS-3;
+	
+	while(getnstr(inputstr,max_input_length) != ERR)
+	{	
+		if (strstr(inputstr,"/exit"))
+			break;
+		else {
+			mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "%s", inputstr);
+			if (chat_win_currenty < chat_win_height-2) 
+				chat_win_currenty++;
+			// todo: else: scroll
 		}
+		
+		// reset input window with a horizontal line made of ' ' characters
+		mvhline(input_win_starty+1, input_win_startx+1, ' ', input_win_width-2);
+		
+		wrefresh(chat_win);
+		wrefresh(input_win);
+		move(LINES-2,1);
+	
+
 	}
 		
-	// end curses mode
+	// free windows from memory
+	delwin(nicklist_win);
+	delwin(input_win);
+	delwin(chat_win);
+	//end curses mode
 	endwin();
 	return 0;
 }
