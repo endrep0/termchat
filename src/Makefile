@@ -9,5 +9,8 @@ termchatclient: termchatclient.c
 termchatclientui: termchatclientui.c
 	gcc -Wall -ggdb -lncurses -o termchatclientui termchatclientui.c
 
+tcn: tcn.c
+	gcc -Wall -ggdb -lncurses -o tcn tcn.c
+
 clean:
 	rm -rf termchatserver termchatclient termchatclientui
