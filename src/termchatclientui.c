@@ -17,9 +17,11 @@ int main(int argc, char *argv[]) {
 	int input_win_startx, input_win_starty, input_win_width, input_win_height;
 	int chat_win_startx, chat_win_starty, chat_win_width, chat_win_height, chat_win_currenty, chat_win_currentx;
 
+	int inputchar;
 	// protocol limit	
 	char inputstr[MAX_MSG_LENGTH];
 	// input limit may be reduced during runtime, if the users terminal is too small
+	int curchar;
 	int max_input_length = MAX_MSG_LENGTH;
 	
 	// saved coordinates
@@ -50,6 +52,7 @@ int main(int argc, char *argv[]) {
 	chat_win_currenty=1;
 	chat_win_currentx=1;
 	
+	curchar=0;
 
 
 	refresh();
@@ -75,35 +78,47 @@ int main(int argc, char *argv[]) {
 	// main loop, let's read each user input, terminated by NL or CR
 	// getnstr limits the number of chars they can type
 	// getnstr should time out after 100ms, giving a chance to the main loop to read network data, even if there's no user interaction
-	wtimeout(input_win, 2000);
+	wtimeout(input_win, 100);
 	//noqiflush();
 	while(1)
 	{	
-		if (wgetnstr(input_win, inputstr,max_input_length) != ERR) {
-			if (strstr(inputstr,"/exit") || strstr(inputstr,"/quit")  )
-				break;
-			if (strstr(inputstr,"/help")) {
-				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "Showing help:");
-				chat_win_currenty++;
-				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, " protecting your nick on this server with a password: /pass <password>");
-				chat_win_currenty++;
-				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, " changing your nick: /nick <newnick> [password]");
-				chat_win_currenty++;
-				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, " changing channel: /channel <newchannel>");
-				chat_win_currenty++;
-				}
-			else {
-				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "%s", inputstr);
-				if (chat_win_currenty < chat_win_height-2) 
-					chat_win_currenty++;
-				// todo: else scroll
+		if ((inputchar=wgetch(input_win)) != ERR) {
+
+			// let's see if we allow one more character
+			if (curchar<MAX_MSG_LENGTH && inputchar!=(int)('\n')) {
+				inputstr[curchar]=inputchar;
+				curchar++;
 			}
-			
-			// reset input window with a horizontal line made of ' ' characters
-			mvwhline(input_win, 1, 1, ' ', input_win_width-2);
-			wmove(input_win,1,1);
-			wrefresh(chat_win);
-			wrefresh(input_win);
+				
+			if (curchar<MAX_MSG_LENGTH && inputchar==(int)('\n')) {
+				if (strstr(inputstr,"/exit") || strstr(inputstr,"/quit")  )
+					break;
+				if (strstr(inputstr,"/help")) {
+					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "Showing help:");
+					chat_win_currenty++;
+					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, " protecting your nick on this server with a password: /pass <password>");
+					chat_win_currenty++;
+					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, " changing your nick: /nick <newnick> [password]");
+					chat_win_currenty++;
+					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, " changing channel: /channel <newchannel>");
+					chat_win_currenty++;
+					}
+				else {
+					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "%s", inputstr);
+					if (chat_win_currenty < chat_win_height-2) 
+						chat_win_currenty++;
+					// todo: else scroll
+				}
+				
+				// reset input window with a horizontal line made of ' ' characters
+				mvwhline(input_win, 1, 1, ' ', input_win_width-2);
+				wmove(input_win,1,1);
+				wrefresh(chat_win);
+				wrefresh(input_win);
+				// reset input string, because we got an NL
+				bzero(inputstr, MAX_MSG_LENGTH);
+				curchar = 0;
+			}
 
 		}
 		else {
