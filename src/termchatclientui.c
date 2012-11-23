@@ -53,18 +53,37 @@ int main(int argc, char *argv[]) {
 	chat_win = create_newwin(chat_win_height, chat_win_width, chat_win_starty, chat_win_startx);
 	move(LINES-2,1);
 	
+	// greeting msg
+	mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "Welcome to the termchat client!");
+	chat_win_currenty++;
+	mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "To list other available commands: type /help. To quit: /exit.");
+	chat_win_currenty++;
+	wrefresh(chat_win);
+	
 	// if the users terminal size is too small, don't allow him to type messages too long	
 	if (COLS-14<MAX_MSG_LENGTH) max_input_length=COLS-3;
 	
+	// main loop, let's read each user input, terminated by NL or CR
+	// getnstr limits the number of chars they can type
 	while(getnstr(inputstr,max_input_length) != ERR)
 	{	
-		if (strstr(inputstr,"/exit"))
+		if (strstr(inputstr,"/exit") || strstr(inputstr,"/quit")  )
 			break;
+		if (strstr(inputstr,"/help")) {
+			mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "Showing help:");
+			chat_win_currenty++;
+			mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, " protecting your nick on this server with a password: /pass <password>");
+			chat_win_currenty++;
+			mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, " changing your nick: /nick <newnick> [password]");
+			chat_win_currenty++;
+			mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, " changing channel: /channel <newchannel>");
+			chat_win_currenty++;
+			}
 		else {
 			mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "%s", inputstr);
 			if (chat_win_currenty < chat_win_height-2) 
 				chat_win_currenty++;
-			// todo: else: scroll
+			// todo: else scroll
 		}
 		
 		// reset input window with a horizontal line made of ' ' characters
@@ -73,8 +92,6 @@ int main(int argc, char *argv[]) {
 		wrefresh(chat_win);
 		wrefresh(input_win);
 		move(LINES-2,1);
-	
-
 	}
 		
 	// free windows from memory
