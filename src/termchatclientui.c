@@ -56,7 +56,7 @@ int main(int argc, char *argv[]) {
 	// greeting msg
 	mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "Welcome to the termchat client!");
 	chat_win_currenty++;
-	mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "To list other available commands: type /help. To quit: /exit.");
+	mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "To list other available commands: type /help. To exit: /exit.");
 	chat_win_currenty++;
 	wrefresh(chat_win);
 	
