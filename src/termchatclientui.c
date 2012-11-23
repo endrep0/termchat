@@ -17,9 +17,9 @@ int main(int argc, char *argv[]) {
 	int input_win_startx, input_win_starty, input_win_width, input_win_height;
 	int chat_win_startx, chat_win_starty, chat_win_width, chat_win_height, chat_win_currenty, chat_win_currentx;
 
-	int inputchar;
+	int user_input_char;
 	// protocol limit	
-	char inputstr[MAX_MSG_LENGTH];
+	char user_input_str[MAX_MSG_LENGTH];
 	// input limit may be reduced during runtime, if the users terminal is too small
 	int curchar;
 	int max_input_length = MAX_MSG_LENGTH;
@@ -31,9 +31,9 @@ int main(int argc, char *argv[]) {
 	// start curses mode
 	initscr();
 	// line buffering disabled, pass on every key press
-	//cbreak();
+	cbreak();
 	// also handle function keys, like F10 for exit
-	//keypad(stdscr, TRUE);
+	keypad(stdscr, TRUE);
 
 	// set size for windows
 	nicklist_win_height = LINES-3;
@@ -52,6 +52,8 @@ int main(int argc, char *argv[]) {
 	chat_win_currenty=1;
 	chat_win_currentx=1;
 	
+	// we will count input characters, and only save them & write them to display MAX_MSG_LENGTH isn't reached yet
+	noecho();
 	curchar=0;
 
 
@@ -82,57 +84,68 @@ int main(int argc, char *argv[]) {
 	//noqiflush();
 	while(1)
 	{	
-		if ((inputchar=wgetch(input_win)) != ERR) {
+		if ((user_input_char=wgetch(input_win)) != ERR) {
 
 			// handle backspace
-			if (inputchar == KEY_BACKSPACE || inputchar == 127) {
+			if (user_input_char == KEY_BACKSPACE || user_input_char == 127) {
 				if (curchar > 0) {
 					curchar--;
 					getyx(input_win, saved_y, saved_x);
-					mvwprintw(input_win, saved_y, saved_x-3, "   ");
-					wmove(input_win, saved_y, saved_x-3);
+					mvwprintw(input_win, saved_y, saved_x-1, " ");
+					wmove(input_win, saved_y, saved_x-1);
 					wrefresh(input_win);
 				}
+				continue;
 			}
-
-			else {
-				// let's see if we allow one more character
-				if (curchar<MAX_MSG_LENGTH && inputchar!='\n') {
-					inputstr[curchar]=inputchar;
-					curchar++;
-				}
-					
-				if (curchar<MAX_MSG_LENGTH && inputchar=='\n') {
-					if (strstr(inputstr,"/exit") || strstr(inputstr,"/quit")  )
-						break;
-					if (strstr(inputstr,"/help")) {
-						mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "Showing help:");
-						chat_win_currenty++;
-						mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, " protecting your nick on this server with a password: /pass <password>");
-						chat_win_currenty++;
-						mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, " changing your nick: /nick <newnick> [password]");
-						chat_win_currenty++;
-						mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, " changing channel: /channel <newchannel>");
-						chat_win_currenty++;
-						}
-					else {
-						mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "%s", inputstr);
-						if (chat_win_currenty < chat_win_height-2) 
-							chat_win_currenty++;
-						// todo: else scroll
+			
+			// if it IS a newline character, the user finished typing a command/msg
+			// it's time to evaluate the input
+			if (user_input_char == '\n')
+			{
+				if (strstr(user_input_str,"/exit") || strstr(user_input_str,"/quit")  )
+					break;
+				if (strstr(user_input_str,"/help")) {
+					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "Showing help:");
+					chat_win_currenty++;
+					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, " protecting your nick on this server with a password: /pass <password>");
+					chat_win_currenty++;
+					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, " changing your nick: /nick <newnick> [password]");
+					chat_win_currenty++;
+					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, " changing channel: /channel <newchannel>");
+					chat_win_currenty++;
 					}
-					
-					// reset input window with a horizontal line made of ' ' characters
-					mvwhline(input_win, 1, 1, ' ', input_win_width-2);
-					wmove(input_win,1,1);
-					wrefresh(chat_win);
-					wrefresh(input_win);
-					// reset input string, because we got an NL
-					bzero(inputstr, MAX_MSG_LENGTH);
-					curchar = 0;
+				else {
+					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "%s", user_input_str);
+					if (chat_win_currenty < chat_win_height-2) 
+						chat_win_currenty++;
+					// todo: else scroll
 				}
+				
+				// reset input window with a horizontal line made of ' ' characters
+				mvwhline(input_win, 1, 1, ' ', input_win_width-2);
+				wmove(input_win,1,1);
+				wrefresh(chat_win);
+				wrefresh(input_win);
+				// reset input string, because we got an NL
+				bzero(user_input_str, MAX_MSG_LENGTH);
+				curchar = 0;
+				continue;
+			}			
+			
+			// it is not a backspace or newline character
+			// check the msg limit, don't allow user to write more
+			if (curchar==MAX_MSG_LENGTH-1) {
+				beep();
+				continue;
 			}
 
+			// ok, not a newline, not a backspace, and limit is not reached yet
+			// let's save it into our input string
+			if (user_input_char!='\n') {
+				user_input_str[curchar]=user_input_char;
+				curchar++;
+				wprintw(input_win, "%c", user_input_char);
+			}
 		}
 		else {
 			getyx(input_win, saved_y, saved_x);
