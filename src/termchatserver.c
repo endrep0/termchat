@@ -12,7 +12,7 @@
 #include <netdb.h>
 #define PORT "2233"
 #define MAX_CHAT_CLIENTS 15
-#define MAXBUF 1024
+#define MAXBUF 80
 
 int server_socket, csock;
 struct addrinfo hints;
