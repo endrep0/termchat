@@ -164,11 +164,14 @@ void ProcessPendingRead(int clientindex)
 			#endif
 			
 			if ( !(strcasebegins(buffer, "NICK ")) ) {
-				if (NULL != chat_clients[clientindex].nickname)
-					// todo when its dynamic
-					//free(chat_clients[clientindex].nickname);
+				// todo when its dynamic
+				//if (NULL != chat_clients[clientindex].nickname)
+				//free(chat_clients[clientindex].nickname);
 				
-				strcpy(chat_clients[clientindex].nickname,"john");
+				char newnick[12];
+				sscanf(buffer, "NICK %s", newnick);
+				
+				strcpy(chat_clients[clientindex].nickname, newnick);
 				continue;
 			}
 			
