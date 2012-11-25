@@ -15,6 +15,7 @@
 
 #define MAX_SOCKET_BUF 1024
 #define MAX_MSG_LENGTH 80
+#define MAX_NICK_LENGTH 12
 
 #define DISCONNECTED 0
 #define CONNECTED 1
@@ -48,7 +49,7 @@ fd_set socks_to_process;
 // chat client data type
 typedef struct {
 	int socket;
-	char nickname[12];
+	char nickname[MAX_NICK_LENGTH];
 	// status: DISCONNECTED, CONNECTED, WAITING_FOR_NICK, HAS_NICK_WAITING_FOR_CHANNEL, CHATTING
 	int status;
 } chat_client_t;
@@ -168,7 +169,7 @@ void ProcessPendingRead(int clientindex)
 				//if (NULL != chat_clients[clientindex].nickname)
 				//free(chat_clients[clientindex].nickname);
 				
-				char newnick[12];
+				char newnick[MAX_NICK_LENGTH];
 				sscanf(buffer, "NICK %s", newnick);
 				
 				strcpy(chat_clients[clientindex].nickname, newnick);

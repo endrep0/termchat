@@ -14,6 +14,7 @@
 #define PORT "2233"
 #define MAX_MSG_LENGTH 80
 #define MAX_SOCKET_BUF 1024
+#define MAX_NICK_LENGTH 12
 
 WINDOW *create_newwin(int height, int width, int starty, int startx);
 void SetNonblocking(int sock);
@@ -26,6 +27,8 @@ int main(int argc, char *argv[]) {
 	int csock;
 	char buffromserver[MAX_SOCKET_BUF];
 	int lenfromserver;
+	char tmp_msg[MAX_MSG_LENGTH];
+	char tmp_nick[MAX_NICK_LENGTH];
 
 	// UI variables, windows paramaters
 	WINDOW *nicklist_win;
@@ -216,8 +219,8 @@ int main(int argc, char *argv[]) {
 		// we can recv() without blocking, as csock is set to non-blocking
 		if ((lenfromserver = recv(csock, buffromserver, MAX_SOCKET_BUF, 0)) > 0) {
 			getyx(input_win, saved_y, saved_x);
-
-			mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "%s", buffromserver);
+			sscanf(buffromserver, "MSG %s %s", tmp_nick, tmp_msg);
+			mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s", tmp_nick, tmp_msg);
 			if (chat_win_currenty < chat_win_height-2) 
 				chat_win_currenty++;
 			// todo is there an overflow here? box redraws which solves the problem
