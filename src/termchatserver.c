@@ -124,7 +124,7 @@ void ProcessPendingRead(int clientindex)
 		if (bytes_read > 0) {
 			// the connection is healthy
 			// let's read the data, and send it to the other clients too
-			printf("A client has sent: %s", buffer);
+			printf("A client has sent: %s\n", buffer);
 			for (i=0; i < MAX_CHAT_CLIENTS; i++) {
 				// don't send it back to the source
 				// TODO: i think 0 needs to rcv it too, so don't put clientindex>0 in if

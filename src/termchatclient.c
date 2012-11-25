@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
 	// input limit may be reduced during runtime, if the users terminal is too small
 	int curchar;
 	int max_input_length = MAX_MSG_LENGTH;
-	
+
 	// saved coordinates
 	int saved_x;
 	int saved_y;	
@@ -56,12 +56,12 @@ int main(int argc, char *argv[]) {
 		printf("Usage: %s <chat server IP>\n", argv[0]);
 		return -1;
 	}
-	
+
 	// support both IPv4 and IPv6
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
-	
+
 	// resolve address, and print any errors to stderr
 	err = getaddrinfo(argv[1], PORT, &hints, &res);
 	if(err != 0) {
@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
 		freeaddrinfo(res);
 		return -1;
 	}
-	
+
 	if(res == NULL) 
 		return -1;
 
@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
 		perror("Error occured while connecting to the server.");
 		return -1;
 	}
-	
+
 	// ok we are connected
 
 	// start curses mode
@@ -110,10 +110,10 @@ int main(int argc, char *argv[]) {
 	chat_win_width = COLS-14;
 	chat_win_starty = 0;
 	chat_win_startx = 0;
-	
+
 	chat_win_currenty=1;
 	chat_win_currentx=1;
-	
+
 	// we will count input characters, and only save them & write them to display MAX_MSG_LENGTH isn't reached yet
 	noecho();
 	curchar=0;
@@ -124,21 +124,21 @@ int main(int argc, char *argv[]) {
 	input_win = create_newwin(input_win_height, input_win_width, input_win_starty, input_win_startx);
 	chat_win = create_newwin(chat_win_height, chat_win_width, chat_win_starty, chat_win_startx);
 
-	
+
 	// greeting msg
 	mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "Welcome to the termchat client!");
 	chat_win_currenty++;
 	mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "To list other available commands: type /help. To exit: /exit.");
 	chat_win_currenty++;
 	wrefresh(chat_win);
-	
+
 	// if the users terminal size is too small, don't allow him to type messages too long	
 	if (COLS-14<MAX_MSG_LENGTH) max_input_length=COLS-3;
-	
+
 	//move(LINES-2,1);
 	wmove(input_win,1,1);
 	wrefresh(input_win);
-	
+
 	// main loop, let's read each user input, terminated by NL or CR
 	// getnstr limits the number of chars they can type
 	// getnstr should time out after 100ms, giving a chance to the main loop to read network data, even if there's no user interaction
@@ -159,7 +159,7 @@ int main(int argc, char *argv[]) {
 				}
 				continue;
 			}
-			
+
 			// if it is a newline character, the user finished typing a command/msg
 			// it's time to evaluate the input
 			if (user_input_char == '\n')
@@ -186,7 +186,7 @@ int main(int argc, char *argv[]) {
 					// send it to the server
 					send(csock, user_input_str, sizeof(user_input_str), 0);
 				}
-				
+
 				// reset input window with a horizontal line made of ' ' characters
 				mvwhline(input_win, 1, 1, ' ', input_win_width-2);
 				wmove(input_win,1,1);
@@ -197,7 +197,7 @@ int main(int argc, char *argv[]) {
 				curchar = 0;
 				continue;
 			}			
-			
+
 			// it is not a backspace or newline character
 			// check the msg limit, don't allow user to write more
 			if (curchar==MAX_MSG_LENGTH-1) {
@@ -214,42 +214,35 @@ int main(int argc, char *argv[]) {
 			}
 		}
 		else {
-		
+
 				// we will monitor both stdin & the network socket with select
 				// let's create the FD set to monitor
 				// we need to do this in every iteration, as select() reduces the set if one FD is not ready to be read
-				
+
 				// empty the set
 				FD_ZERO(&socks_to_process);
 				// add the network socket
 				FD_SET(csock, &socks_to_process);
 				// add stdin
 				FD_SET(STDIN_FILENO, &socks_to_process);		
-				
+
 				// let's check every 1 sec if there's anything on either stdin or the socket
 				select_timeout.tv_sec = 1;
 				select_timeout.tv_usec = 0;
-				
+
 				num_of_sockets_to_read = select(FD_SETSIZE, &socks_to_process, (fd_set *) 0, (fd_set *) 0, &select_timeout);
-				
+
 				// select has modified socks_to_process, only those remain which can be read without blocking
-				
-				#ifdef DEBUG
-				if (0 == num_of_sockets_to_read) {
-					printf("No input from stdin, no input from server.\n");
-					fflush(stdout);
-				}
-				#endif /* DEBUG */
-				
+
 				if (0 != num_of_sockets_to_read) {
-					
+
 					// if csock is in the FD set, we have data from the chat server
 					if (FD_ISSET(csock, &socks_to_process)) {
 						// fill buffer with zeros
 						bzero(buffromserver, MAX_MSG_LENGTH);
 						if ((lenfromserver = recv(csock, buffromserver, MAX_MSG_LENGTH, 0)) > 0) {
 							getyx(input_win, saved_y, saved_x);
-							
+
 							mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "%s", buffromserver);
 							if (chat_win_currenty < chat_win_height-2) 
 								chat_win_currenty++;
@@ -260,23 +253,13 @@ int main(int argc, char *argv[]) {
 							wrefresh(input_win);			
 						}
 					}
-					
-					// if stdin is in the FD set, we have local data to send to the chat server
-					if (FD_ISSET(STDIN_FILENO, &socks_to_process)) {			
-						// fill buffer with zeros
-						//bzero(buffromstdin, MAX_MSG_LENGTH);
-						
-						/* TODO
-						if ((lenfromstdin = read(STDIN_FILENO, buffromstdin, sizeof(buffromstdin))) > 0 ) 
-							send(csock, buffromstdin, lenfromstdin, 0);				
-						*/
-					}
+
 				}		
-		
+
 
 		}
 	}
-		
+
 	// free windows from memory
 	delwin(nicklist_win);
 	delwin(input_win);
@@ -286,7 +269,7 @@ int main(int argc, char *argv[]) {
 	// free the addrinfo struct
 	freeaddrinfo(res);
 	// TODO: add free also if we get term signal
-	
+
 	// close the socket
 	close(csock);	
 	return 0;
