@@ -1,16 +1,10 @@
-all: termchatserver termchatclient termchatclientui
+all: termchatserver termchatclient
 
 termchatserver: termchatserver.c
 	gcc -Wall -ggdb -o termchatserver termchatserver.c
 
 termchatclient: termchatclient.c
-	gcc -Wall -ggdb -o termchatclient termchatclient.c
-
-termchatclientui: termchatclientui.c
-	gcc -Wall -ggdb -lncurses -o termchatclientui termchatclientui.c
-
-tcn: tcn.c
-	gcc -Wall -ggdb -lncurses -o tcn tcn.c
+	gcc -Wall -ggdb -lncurses -o termchatclient termchatclient.c
 
 clean:
-	rm -rf termchatserver termchatclient termchatclientui
+	rm -rf termchatserver termchatclient

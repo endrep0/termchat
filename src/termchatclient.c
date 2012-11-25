@@ -26,7 +26,6 @@ int main(int argc, char *argv[]) {
 	struct addrinfo* res;
 	int err;
 	int csock;
-	char buffromstdin[MAX_MSG_LENGTH];
 	char buffromserver[MAX_MSG_LENGTH];
 	//int lenfromstdin;
 	int lenfromserver;
@@ -178,10 +177,14 @@ int main(int argc, char *argv[]) {
 					chat_win_currenty++;
 					}
 				else {
+					// not a command, let's close the message
+					user_input_str[curchar]='\0';
 					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "%s", user_input_str);
 					if (chat_win_currenty < chat_win_height-2) 
 						chat_win_currenty++;
 					// todo: else scroll
+					// send it to the server
+					send(csock, user_input_str, sizeof(user_input_str), 0);
 				}
 				
 				// reset input window with a horizontal line made of ' ' characters
@@ -261,7 +264,7 @@ int main(int argc, char *argv[]) {
 					// if stdin is in the FD set, we have local data to send to the chat server
 					if (FD_ISSET(STDIN_FILENO, &socks_to_process)) {			
 						// fill buffer with zeros
-						bzero(buffromstdin, MAX_MSG_LENGTH);
+						//bzero(buffromstdin, MAX_MSG_LENGTH);
 						
 						/* TODO
 						if ((lenfromstdin = read(STDIN_FILENO, buffromstdin, sizeof(buffromstdin))) > 0 ) 
