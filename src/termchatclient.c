@@ -10,6 +10,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <time.h>
 
 #define PORT "2233"
 #define MAX_MSG_LENGTH 80
@@ -18,6 +19,7 @@
 
 WINDOW *create_newwin(int height, int width, int starty, int startx);
 void SetNonblocking(int sock);
+int strbegins(const char *haystack, const char *beginning);
 
 int main(int argc, char *argv[]) {
 	// network variables
@@ -29,6 +31,10 @@ int main(int argc, char *argv[]) {
 	int lenfromserver;
 	char tmp_msg[MAX_MSG_LENGTH];
 	char tmp_nick[MAX_NICK_LENGTH];
+	char tmp_buf[MAX_SOCKET_BUF];
+	// for printing time for msgs
+	time_t time_now;
+	char tmp_time[8];
 
 	// UI variables, windows paramaters
 	WINDOW *nicklist_win;
@@ -162,6 +168,9 @@ int main(int argc, char *argv[]) {
 			// it's time to evaluate the input
 			if (user_input_char == '\n')
 			{
+				// let's close the string
+				user_input_str[current_char]='\0';
+				
 				if (strstr(user_input_str,"/exit") || strstr(user_input_str,"/quit")  )
 					break;
 				if (strstr(user_input_str,"/help")) {
@@ -174,9 +183,14 @@ int main(int argc, char *argv[]) {
 					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, " changing channel: /channel <newchannel>");
 					chat_win_currenty++;
 					}
+					
+				if ( !strbegins(user_input_str, "/nick ")) {
+					sscanf(user_input_str, "/nick %s", tmp_nick);
+					sprintf(tmp_buf, "NICK %s", tmp_nick);
+					send(csock, tmp_buf, sizeof(tmp_buf), 0);
+				}
+				
 				else {
-					// not a command, let's close the message
-					user_input_str[current_char]='\0';
 					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "%s", user_input_str);
 					if (chat_win_currenty < chat_win_height-2) 
 						chat_win_currenty++;
@@ -220,7 +234,13 @@ int main(int argc, char *argv[]) {
 		if ((lenfromserver = recv(csock, buffromserver, MAX_SOCKET_BUF, 0)) > 0) {
 			getyx(input_win, saved_y, saved_x);
 			sscanf(buffromserver, "MSG %s %s", tmp_nick, tmp_msg);
-			mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s", tmp_nick, tmp_msg);
+			
+			// get current time into time_now, and then print into tmp_time string
+			time_now = time (0);
+			strftime(tmp_time, 9, "%H:%M:%S", localtime (&time_now));
+
+			// print the received message on the screen in the finalized format
+			mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] <%s> %s", tmp_time, tmp_nick, tmp_msg);
 			if (chat_win_currenty < chat_win_height-2) 
 				chat_win_currenty++;
 			// todo is there an overflow here? box redraws which solves the problem
@@ -264,4 +284,15 @@ void SetNonblocking(int sock) {
 	int opts = fcntl(sock, F_GETFL);
 	opts = (opts | O_NONBLOCK);
 	fcntl(sock, F_SETFL, opts);
+}
+
+// returns 0 if haystack begins with beginning (case sensitive), -1 if not
+int strbegins(const char *haystack, const char *beginning) {
+	if (NULL == haystack || NULL == beginning) 
+		return -1;
+	if (sizeof(beginning) > sizeof(haystack))
+		return -1;
+	
+	if (strstr(haystack, beginning) != NULL ) return 0;
+	else return -1;
 }

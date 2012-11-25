@@ -57,7 +57,7 @@ typedef struct {
 // we will hold MAX_CHAT_CLIENTS
 chat_client_t chat_clients[MAX_CHAT_CLIENTS];
 
-int strcasebegins(const char *haystack, const char *beginning);
+int strbegins(const char *haystack, const char *beginning);
 
 // this array will hold the connected client sockets
 //int connected_client_socks[MAX_CHAT_CLIENTS];
@@ -164,7 +164,7 @@ void ProcessPendingRead(int clientindex)
 			printf("A client has sent: %s\n", buffer);
 			#endif
 			
-			if ( !(strcasebegins(buffer, "NICK ")) ) {
+			if ( !(strbegins(buffer, "NICK ")) ) {
 				// todo when its dynamic
 				//if (NULL != chat_clients[clientindex].nickname)
 				//free(chat_clients[clientindex].nickname);
@@ -300,8 +300,8 @@ int main() {
 	return 0;
 }
 
-// returns 0 if haystack begins with beginning, -1 if not
-int strcasebegins(const char *haystack, const char *beginning) {
+// returns 0 if haystack begins with beginning (case sensitive), -1 if not
+int strbegins(const char *haystack, const char *beginning) {
 	if (NULL == haystack || NULL == beginning) 
 		return -1;
 	if (sizeof(beginning) > sizeof(haystack))
