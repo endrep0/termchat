@@ -20,6 +20,9 @@
 #define HAS_NICK_WAITING_FOR_CHANNEL 3
 #define CHATTING 4
 
+// for printing client messages to stdout
+#define DEBUG
+
 int server_socket, csock;
 struct addrinfo hints;
 struct addrinfo* res;
@@ -29,6 +32,7 @@ socklen_t addrlen;
 char ips[NI_MAXHOST];
 char servs[NI_MAXSERV];
 char buffer[MAXBUF];
+char msg_to_send[MAXBUF];
 int len;
 int reuse;
 int i;
@@ -92,13 +96,14 @@ void HandleNewConnection(void) {
 		// try to get client's ip:port string in a protocol-independent way, using getnameinfo()
 		// we need the size of addr
 		addrlen = sizeof(addr);
-		// TODO: for some reason first one fails
+		// TODO: for some reason first lookup fails
 		getnameinfo_error = getnameinfo((struct sockaddr*)&addr, addrlen, ips, sizeof(ips), servs, sizeof(servs), 0);
 		// check if there's room for our socket
 		for (i=0; (i < MAX_CHAT_CLIENTS) && (0 == connection_accepted); i++)
 			if (0 == chat_clients[i].socket) {
 				// we found a free slot, let's accept the client connection
 				chat_clients[i].socket=client_socket;
+				chat_clients[i].status=CONNECTED;
 				if (0 == getnameinfo_error) 
 					printf("Chat client connection accepted from: %s:%s. Socket descriptor: %d, Socket index: %d\n", ips, servs, client_socket, i);
 				else 
@@ -138,18 +143,28 @@ void ProcessPendingRead(int clientindex)
 			printf("Disconnected from a client. Socket descriptor: %d, Socket index: %d\n", chat_clients[clientindex].socket, clientindex);
 			close(chat_clients[clientindex].socket);
 			chat_clients[clientindex].socket = 0;
+			chat_clients[clientindex].status = DISCONNECTED;
+			//TODO
+			//free(chat_clients[clientindex].nickname);
 			break;
 		}
 		
 		if (bytes_read > 0) {
 			// the connection is healthy
-			// let's read the data, and send it to the other clients too
+			// and we read data from the client in "buffer"
+			
+			#ifdef DEBUG
+			// add to stdout in debug mode
 			printf("A client has sent: %s\n", buffer);
+			#endif
+			
+			// send the message to the other clients in format: MSG sourcenick message
+			bzero(msg_to_send, MAXBUF);
+			sprintf(msg_to_send, "MSG %s %s", chat_clients[clientindex].nickname, buffer);
 			for (i=0; i < MAX_CHAT_CLIENTS; i++) {
 				// don't send it back to the source
-				// TODO: i think 0 needs to rcv it too, so don't put clientindex>0 in if
 				if (i!= clientindex)
-					send(chat_clients[i].socket, buffer, strlen(buffer), 0);
+					send(chat_clients[i].socket, msg_to_send, strlen(msg_to_send), 0);
 			}
 		}
 	} while (bytes_read > 0);
@@ -231,7 +246,7 @@ int main() {
 	for (i=0; i<MAX_CHAT_CLIENTS; i++) {
 		chat_clients[i].socket=0;
 		chat_clients[i].status=DISCONNECTED;
-		
+		strcpy(chat_clients[i].nickname,"tester");
 	}
 	
 	
