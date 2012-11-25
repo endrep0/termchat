@@ -13,6 +13,7 @@
 
 #define PORT "2233"
 #define MAX_MSG_LENGTH 80
+#define MAX_SOCKET_BUF 1024
 
 WINDOW *create_newwin(int height, int width, int starty, int startx);
 void SetNonblocking(int sock);
@@ -23,7 +24,7 @@ int main(int argc, char *argv[]) {
 	struct addrinfo* res;
 	int err;
 	int csock;
-	char buffromserver[MAX_MSG_LENGTH];
+	char buffromserver[MAX_SOCKET_BUF];
 	int lenfromserver;
 
 	// UI variables, windows paramaters
@@ -211,9 +212,9 @@ int main(int argc, char *argv[]) {
 		// we handled the keyboard input, now let's check if we have anything from the chat server
 		
 		// reset the previous buffer state, in which we will read the server msg
-		bzero(buffromserver, MAX_MSG_LENGTH);
+		bzero(buffromserver, MAX_SOCKET_BUF);
 		// we can recv() without blocking, as csock is set to non-blocking
-		if ((lenfromserver = recv(csock, buffromserver, MAX_MSG_LENGTH, 0)) > 0) {
+		if ((lenfromserver = recv(csock, buffromserver, MAX_SOCKET_BUF, 0)) > 0) {
 			getyx(input_win, saved_y, saved_x);
 
 			mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "%s", buffromserver);

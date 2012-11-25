@@ -12,7 +12,9 @@
 #include <netdb.h>
 #define PORT "2233"
 #define MAX_CHAT_CLIENTS 15
-#define MAXBUF 80
+
+#define MAX_SOCKET_BUF 1024
+#define MAX_MSG_LENGTH 80
 
 #define DISCONNECTED 0
 #define CONNECTED 1
@@ -31,8 +33,10 @@ struct sockaddr_in6 addr;
 socklen_t addrlen;
 char ips[NI_MAXHOST];
 char servs[NI_MAXSERV];
-char buffer[MAXBUF];
-char msg_to_send[MAXBUF];
+
+// TODO different MAX_SOCKET_BUF & MAXMSGLENGTH
+char buffer[MAX_SOCKET_BUF];
+char msg_to_send[MAX_SOCKET_BUF];
 int len;
 int reuse;
 int i;
@@ -133,9 +137,9 @@ void ProcessPendingRead(int clientindex)
 	
 	do {
 		// fill buffer with zeros
-		bzero(buffer, MAXBUF);
+		bzero(buffer, MAX_SOCKET_BUF);
 		// receive the data
-		bytes_read = recv(chat_clients[clientindex].socket, buffer, MAXBUF, 0);
+		bytes_read = recv(chat_clients[clientindex].socket, buffer, MAX_SOCKET_BUF, 0);
 		
 		if (0 == bytes_read) {
 			// got disconnected from this client
@@ -159,7 +163,7 @@ void ProcessPendingRead(int clientindex)
 			#endif
 			
 			// send the message to the other clients in format: MSG sourcenick message
-			bzero(msg_to_send, MAXBUF);
+			bzero(msg_to_send, MAX_SOCKET_BUF);
 			sprintf(msg_to_send, "MSG %s %s", chat_clients[clientindex].nickname, buffer);
 			for (i=0; i < MAX_CHAT_CLIENTS; i++) {
 				// don't send it back to the source
