@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
 	// protocol limit for the message length
 	char user_input_str[MAX_MSG_LENGTH];
 	// todo think this through	
-	// input limit may be reduced during runtime, if the users terminal is too small
+	// input limit may be reduced during runtime, if the user's terminal is too small
 	int current_char;
 	int max_input_length = MAX_MSG_LENGTH;
 	// saved coordinates
