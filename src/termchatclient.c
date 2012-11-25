@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
 
 	// did we get a server as parameter
 	if(argc != 2) {
-		printf("Usage: %s <chat server IP>\n", argv[0]);
+		printf("Usage: %s <chat server IP> [nick] [pass]\n", argv[0]);
 		return -1;
 	}
 
