@@ -207,14 +207,16 @@ int main(int argc, char *argv[]) {
 				}	
 				
 				else {
-					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "%s", user_input_str);
-					if (chat_win_currenty < chat_win_height-2) 
-						chat_win_currenty++;
+					// let's not print the message right away
+					// we wait for the server ACK, we only print if delivered
+					//mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "%s", user_input_str);
+					//if (chat_win_currenty < chat_win_height-2) 
+					//	chat_win_currenty++;
 					// todo: else scroll
 					// send it to the server
 					// let's prepare the message in the needed format
 					bzero(tmp_buf, MAX_SOCKET_BUF);
-					sprintf(tmp_buf, "MSG %s", user_input_str);					
+					sprintf(tmp_buf, "CHANMSG %s", user_input_str);					
 					send(csock, tmp_buf, sizeof(tmp_buf), 0);
 				}
 
@@ -259,10 +261,10 @@ int main(int argc, char *argv[]) {
 			time_now = time (0);
 			strftime(tmp_time, 9, "%H:%M:%S", localtime (&time_now));			
 			
-			if (!StrBegins(buffromserver, "MSGFROM ")) {
+			if (!StrBegins(buffromserver, "CHANMSGFROM ")) {
 				// we process the message from the server
 				// NewLines are never sent by the server, we use %[^\n] to read whitespaces in the string too
-				sscanf(buffromserver, "MSGFROM %s %[^\n]", tmp_nick, tmp_msg);
+				sscanf(buffromserver, "CHANMSGFROM %s %[^\n]", tmp_nick, tmp_msg);
 				// print the received message on the screen in the finalized format
 				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] <%s> %s", tmp_time, tmp_nick, tmp_msg);
 			}
@@ -277,7 +279,13 @@ int main(int argc, char *argv[]) {
 				sscanf(buffromserver, "CMDERROR %[^\n]", tmp_msg);			
 				// print the received message on the screen in the finalized format
 				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s", tmp_time, tmp_msg);
-			}			
+			}	
+		
+			if (!StrBegins(buffromserver, "CHANMSGERROR ")) {
+				sscanf(buffromserver, "CHANMSGERROR %[^\n]", tmp_msg);			
+				// print the received message on the screen in the finalized format
+				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s", tmp_time, tmp_msg);
+			}					
 			
 			if (chat_win_currenty < chat_win_height-2) 
 			chat_win_currenty++;

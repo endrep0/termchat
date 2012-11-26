@@ -19,10 +19,9 @@
 #define MAX_CHANNEL_LENGTH 12
 
 #define DISCONNECTED 0
-#define CONNECTED 1
-#define WAITING_FOR_NICK 2
-#define HAS_NICK_WAITING_FOR_CHANNEL 3
-#define CHATTING 4
+#define WAITING_FOR_NICK 1
+#define HAS_NICK_WAITING_FOR_CHANNEL 2
+#define CHATTING 3
 
 // for printing client messages to stdout
 #define DEBUG
@@ -39,7 +38,7 @@ char servs[NI_MAXSERV];
 // TODO different MAX_SOCKET_BUF & MAXMSGLENGTH
 char buffer[MAX_SOCKET_BUF];
 char msg_to_send[MAX_SOCKET_BUF];
-char cmd_reply[MAX_SOCKET_BUF];
+char reply[MAX_SOCKET_BUF];
 int len;
 int reuse;
 int i;
@@ -52,7 +51,7 @@ fd_set socks_to_process;
 typedef struct {
 	int socket;
 	char nickname[MAX_NICK_LENGTH];
-	// status: DISCONNECTED, CONNECTED, WAITING_FOR_NICK, HAS_NICK_WAITING_FOR_CHANNEL, CHATTING
+	// status: DISCONNECTED, WAITING_FOR_NICK, HAS_NICK_WAITING_FOR_CHANNEL, CHATTING
 	int status;
 	char channel[MAX_CHANNEL_LENGTH];
 } chat_client_t;
@@ -62,7 +61,9 @@ chat_client_t chat_clients[MAX_CHAT_CLIENTS];
 
 int StrBegins(const char *haystack, const char *beginning);
 //char* ProcessClientCmd(int clientindex, const char *cmd_msg);
-void ProcessClientCmd(int clientindex, const char *cmd_msg, char *cmd_reply);
+void ProcessClientCmd(int clientindex, const char *cmd_msg, char *reply);
+void ProcessClientChanMsg(int clientindex, const char *chan_msg);
+void ProcessClientPrivMsg(int clientindex, const char *priv_msg);
 
 // this array will hold the connected client sockets
 //int connected_client_socks[MAX_CHAT_CLIENTS];
@@ -114,7 +115,7 @@ void HandleNewConnection(void) {
 			if (0 == chat_clients[i].socket) {
 				// we found a free slot, let's accept the client connection
 				chat_clients[i].socket=client_socket;
-				chat_clients[i].status=CONNECTED;
+				chat_clients[i].status=WAITING_FOR_NICK;
 				if (0 == getnameinfo_error) 
 					printf("Chat client connection accepted from: %s:%s. Socket descriptor: %d, Socket index: %d\n", ips, servs, client_socket, i);
 				else 
@@ -140,7 +141,7 @@ void HandleNewConnection(void) {
 void ProcessPendingRead(int clientindex)
 {
 	int bytes_read;
-	int i;
+	//int i;
 	
 	do {
 		// fill buffer with zeros
@@ -175,24 +176,17 @@ void ProcessPendingRead(int clientindex)
 			// let's see if we got a command from the client
 			if ( !(StrBegins(buffer, "CMD")) ) {
 				// process the client command, and prepare the reply
-				//if (NULL != cmd_reply) free(cmd_reply);
+				//if (NULL != reply) free(reply);
 				// todo mem leak?
-				ProcessClientCmd(clientindex, buffer, cmd_reply);
+				ProcessClientCmd(clientindex, buffer, reply);
 				// send back reply to the client
-				send(chat_clients[clientindex].socket, cmd_reply, strlen(cmd_reply), 0);
+				send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
 				continue;
 			}
 			
-			if ( !(StrBegins(buffer, "MSG ")) ) {
-				// send the message to the other clients in format: MSG sourcenick message
-				bzero(msg_to_send, MAX_SOCKET_BUF);
-				// we cut the first 4 characters when sending back, and start with MSGFROM instead
-				sprintf(msg_to_send, "MSGFROM %s %s", chat_clients[clientindex].nickname, buffer+4);
-				for (i=0; i < MAX_CHAT_CLIENTS; i++) {
-					// don't send it back to the source
-					if (i!= clientindex)
-						send(chat_clients[i].socket, msg_to_send, strlen(msg_to_send), 0);
-				}
+			if ( !(StrBegins(buffer, "CHANMSG ")) ) {
+				ProcessClientChanMsg(clientindex, buffer);
+				continue;
 			}			
 					
 		}
@@ -330,21 +324,21 @@ int StrBegins(const char *haystack, const char *beginning) {
 
 // process a command that we got from a chat client
 // cmd_msg example: CMDNICK Johnny\0
-// cmd_reply will be updated to the server reply, this should be sent to the client by the caller
-// some cmd_reply examples:
+// reply will be updated to the server reply, this should be sent to the client by the caller
+// some reply examples:
 //  CMDERROR Nick already taken.\0
 //  CMDOK Nick changed.\0
 //  CMDERROR Unknown command.\0
-void ProcessClientCmd(int clientindex, const char *cmd_msg, char *cmd_reply) {
+void ProcessClientCmd(int clientindex, const char *cmd_msg, char *reply) {
 		// reset reply string
-		bzero(cmd_reply, MAX_SOCKET_BUF);
+		bzero(reply, MAX_SOCKET_BUF);
 				
 		if ( !(StrBegins(buffer, "CMDNICK ")) ) {
 			char newnick[MAX_NICK_LENGTH];
 			sscanf(buffer, "CMDNICK %s", newnick);
 			strcpy(chat_clients[clientindex].nickname, newnick);
 			chat_clients[clientindex].status = HAS_NICK_WAITING_FOR_CHANNEL;
-			sprintf(cmd_reply, "CMDOK Nick changed to %s", newnick);
+			sprintf(reply, "CMDOK Nick changed to %s", newnick);
 			return;
 		}
 		
@@ -353,10 +347,47 @@ void ProcessClientCmd(int clientindex, const char *cmd_msg, char *cmd_reply) {
 			sscanf(buffer, "CMDCHANNEL %s", new_channel);
 			strcpy(chat_clients[clientindex].channel, new_channel);
 			chat_clients[clientindex].status = CHATTING;
-			sprintf(cmd_reply, "CMDOK Now chatting in channel: %s.", new_channel);
+			sprintf(reply, "CMDOK Now chatting in channel: %s.", new_channel);
 			return;
 		}		
 		
 		// if the CMD line didn't fit any of the commands, it has wrong syntax, reply this.
-		sprintf(cmd_reply, "CMDERROR Unknown command.");
+		sprintf(reply, "CMDERROR Unknown command.");
+}
+
+// process a message that we got from a chat client
+// if we can accept the channel message, we relay it to others in the channel
+// and we send a CHANMSGOK reply to the sender
+// if we cannot accept the channel message, the reply will have CHANMSGERROR
+void ProcessClientChanMsg(int clientindex, const char *chan_msg) {
+		// reset reply string
+		bzero(reply, MAX_SOCKET_BUF);
+		
+		// we don't accept channel messages, if the client hasn't set a nickname yet
+		if (chat_clients[clientindex].status == WAITING_FOR_NICK) {
+			sprintf(reply, "CHANMSGERROR Please set a nickname, and set the channel first.");
+			send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
+			return;
+			}
+		
+		// client has set a nickname, but they also have to set the channel before sending channel msgs
+		if (chat_clients[clientindex].status == HAS_NICK_WAITING_FOR_CHANNEL) {
+			sprintf(reply, "CHANMSGERROR Please set the channel first.");
+			send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
+			return;
+		}
+		
+		// ok, so the client has a nick and is in a channel, we accept the channel message
+		// send the message to the other clients in format: MSG sourcenick message
+		bzero(msg_to_send, MAX_SOCKET_BUF);
+		// we cut the first 8 characters when sending back, and start with MSGFROM instead
+		sprintf(msg_to_send, "CHANMSGFROM %s %s\0", chat_clients[clientindex].nickname, chan_msg+8);		
+		// send it to everyone, even the source, so he will know when the message gets delivered
+		for (i=0; i < MAX_CHAT_CLIENTS; i++) {
+			send(chat_clients[i].socket, msg_to_send, strlen(msg_to_send), 0);
+		}		
+		
+		// send ack to sender
+		sprintf(reply, "CHANMSGOK Channel message accepted.");
+		send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
 }
