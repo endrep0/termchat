@@ -336,10 +336,15 @@ int main(int argc, char *argv[]) {
 				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] you sent a private message to %s: %s", tmp_time, tmp_nick, tmp_msg);
 			}				
 			
-			if (!StrBegins(buffromserver, "CMDOK ")) {
-				sscanf(buffromserver, "CMDOK %[^\n]", tmp_msg);
-				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s", tmp_time, tmp_msg);
+			if (!StrBegins(buffromserver, "CMDNICKOK ")) {
+				sscanf(buffromserver, "CMDNICKOK %s]", tmp_nick);
+				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] Your nick is now %s.", tmp_time, tmp_nick);
 			}
+			
+			if (!StrBegins(buffromserver, "CMDCHANNELOK ")) {
+				sscanf(buffromserver, "CMDCHANNELOK %s", tmp_chan);
+				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] You are now chatting in channel %s", tmp_time, tmp_chan);
+			}			
 			
 			if (!StrBegins(buffromserver, "CMDERROR ")) {
 				sscanf(buffromserver, "CMDERROR %[^\n]", tmp_msg);			

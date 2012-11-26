@@ -331,7 +331,8 @@ int StrBegins(const char *haystack, const char *beginning) {
 // reply will be updated to the server reply, this should be sent to the client by the caller
 // some reply examples:
 //  CMDERROR Nick already taken.\0
-//  CMDOK Nick changed.\0
+//  CMDNICKOK newnick
+//  CMDCHANNELOK newchannel
 //  CMDERROR Unknown command.\0
 void ProcessClientCmd(int clientindex, const char *cmd_msg, char *reply) {
 		// reset reply string
@@ -340,11 +341,27 @@ void ProcessClientCmd(int clientindex, const char *cmd_msg, char *reply) {
 		if ( !(StrBegins(buffer, "CMDNICK ")) ) {
 			char newnick[MAX_NICK_LENGTH];
 			sscanf(buffer, "CMDNICK %s", newnick);
+			
+			// is this nick really new?
+			if (!strcmp(newnick, chat_clients[clientindex].nickname)) {
+				sprintf(reply, "CMDERROR Your nick is already %s", newnick);
+				return;
+			}			
+			
+			// check if nick is taken
+			for (i=0; i<MAX_CHAT_CLIENTS; i++) {
+				if (!strcmp(newnick, chat_clients[i].nickname)) {
+					sprintf(reply, "CMDERROR The %s nickname is already taken.", newnick);
+					return;
+				}
+			}
+			
+			// ok, it wasn't taken
 			strcpy(chat_clients[clientindex].nickname, newnick);
 			
 			if ( WAITING_FOR_NICK == chat_clients[clientindex].status )
 				chat_clients[clientindex].status = HAS_NICK_WAITING_FOR_CHANNEL;
-			sprintf(reply, "CMDOK Nick changed to %s", newnick);
+			sprintf(reply, "CMDNICKOK %s", newnick);
 			return;
 		}
 		
@@ -353,7 +370,7 @@ void ProcessClientCmd(int clientindex, const char *cmd_msg, char *reply) {
 			sscanf(buffer, "CMDCHANNEL %s", new_channel);
 			strcpy(chat_clients[clientindex].channel, new_channel);
 			chat_clients[clientindex].status = CHATTING;
-			sprintf(reply, "CMDOK Now chatting in channel: %s.", new_channel);
+			sprintf(reply, "CMDCHANNELOK %s", new_channel);
 			return;
 		}		
 		
