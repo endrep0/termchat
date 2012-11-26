@@ -363,6 +363,10 @@ void ProcessClientCmd(int clientindex, const char *cmd_msg, char *reply) {
 				chat_clients[clientindex].status = HAS_NICK_WAITING_FOR_CHANNEL;
 			sprintf(reply, "CMDNICKOK %s", newnick);
 			return;
+			
+			// TODO
+			// CHANUPDATEJOIN
+			// CHANUPDATELEAVE
 		}
 		
 		if ( !(StrBegins(buffer, "CMDCHANNEL ")) ) {
