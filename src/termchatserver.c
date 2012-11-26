@@ -187,7 +187,12 @@ void ProcessPendingRead(int clientindex)
 			if ( !(StrBegins(buffer, "CHANMSG ")) ) {
 				ProcessClientChanMsg(clientindex, buffer);
 				continue;
-			}			
+			}
+			
+			if ( !(StrBegins(buffer, "PRIVMSG ")) ) {
+				ProcessClientPrivMsg(clientindex, buffer);
+				continue;
+			}				
 					
 		}
 	} while (bytes_read > 0);
@@ -355,7 +360,7 @@ void ProcessClientCmd(int clientindex, const char *cmd_msg, char *reply) {
 		sprintf(reply, "CMDERROR Unknown command.");
 }
 
-// process a message that we got from a chat client
+// process a channel message that we got from a chat client
 // if we can accept the channel message, we relay it to others in the channel
 // and also to the sender - this serves as a acknowledgement of delivery
 // if we cannot accept the channel message, then we send a CHANMSGERROR
@@ -385,9 +390,51 @@ void ProcessClientChanMsg(int clientindex, const char *chan_msg) {
 		// let's build the new message to send based on the original
 		sprintf(msg_to_send, "CHANMSGFROM %s %s", chat_clients[clientindex].nickname, chan_msg+8);		
 		
-		// send it to everyone on the particular channel
+		// go through every client, and send them the message if they're in the particular channel
 		// even the source, so he knows that their message has been delivered
-		for (i=0; i < MAX_CHAT_CLIENTS && !strcmp(channel, chat_clients[i].channel); i++) {
-			send(chat_clients[i].socket, msg_to_send, strlen(msg_to_send), 0);
+		for (i=0; i < MAX_CHAT_CLIENTS; i++) {
+			 if (!strcmp(channel, chat_clients[i].channel))
+				send(chat_clients[i].socket, msg_to_send, strlen(msg_to_send), 0);
 		}	
+}
+
+// process a private message that we got from a chat client
+// format: PRIVMSG targetnick message
+// if we can accept the channel message, we relay it to the recepient
+// in format: PRIVMSGFROM sourcenick message
+// sender will get back a PRIVMSGOK targetnick message as an acknowledgement
+// or a PRIVMSGERROR error message
+void ProcessClientPrivMsg(int clientindex, const char *priv_msg) {	
+		char target_nick[MAX_NICK_LENGTH];
+		char message[MAX_MSG_LENGTH];
+		
+		// reset msg_to_send string
+		bzero(msg_to_send, MAX_SOCKET_BUF);	
+		
+		// we don't accept private messages, if the client hasn't set a nickname yet
+		if (chat_clients[clientindex].status == WAITING_FOR_NICK) {
+			sprintf(msg_to_send, "PRIVMSGERROR Please set a nickname before sending a private message.");
+			send(chat_clients[clientindex].socket, msg_to_send, strlen(msg_to_send), 0);
+			return;
+		}
+		
+		// get the target nick & the actual message
+		sscanf(priv_msg, "PRIVMSG %s %[^\n]", target_nick, message);
+		// go through every client
+		for (i=0; i < MAX_CHAT_CLIENTS; i++) {			
+			if (!strcmp(target_nick, chat_clients[i].nickname)) {
+				// we found the target nick, send him the PRIVMSGFROM sourcenick message
+				sprintf(msg_to_send, "PRIVMSGFROM %s %s", chat_clients[clientindex].nickname, message);
+				send(chat_clients[i].socket, msg_to_send, strlen(msg_to_send), 0);
+				// now send the ack to the sender, PRIVMSGOK targetnick message
+				bzero(msg_to_send, MAX_SOCKET_BUF);
+				sprintf(msg_to_send, "PRIVMSGOK %s %s", target_nick, message);
+				send(chat_clients[clientindex].socket, msg_to_send, strlen(msg_to_send), 0);
+				return;
+			}
+		}
+
+		// if we get this far, that means we couldn't find the target nick
+		sprintf(msg_to_send, "PRIVMSGERROR Can't deliver message, no user named '%s' is online.", target_nick);
+		send(chat_clients[clientindex].socket, msg_to_send, strlen(msg_to_send), 0);		
 }

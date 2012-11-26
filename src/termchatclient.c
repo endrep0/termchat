@@ -16,6 +16,7 @@
 #define MAX_MSG_LENGTH 80
 #define MAX_SOCKET_BUF 1024
 #define MAX_NICK_LENGTH 12
+#define MAX_CHANNEL_LENGTH 12
 
 WINDOW *create_newwin(int height, int width, int starty, int startx);
 void SetNonblocking(int sock);
@@ -32,6 +33,7 @@ int main(int argc, char *argv[]) {
 	char tmp_msg[MAX_MSG_LENGTH];
 	char tmp_nick[MAX_NICK_LENGTH];
 	char tmp_buf[MAX_SOCKET_BUF];
+	char tmp_chan[MAX_CHANNEL_LENGTH];
 	// for printing time for msgs
 	time_t time_now;
 	char tmp_time[8];
@@ -192,19 +194,27 @@ int main(int argc, char *argv[]) {
 				}
 				
 				else if ( !StrBegins(user_input_str, "/channel ") ) {
-					sscanf(user_input_str, "/channel %s", tmp_nick);
+					sscanf(user_input_str, "/channel %s", tmp_chan);
 					bzero(tmp_buf, MAX_SOCKET_BUF);
-					sprintf(tmp_buf, "CMDCHANNEL %s", tmp_nick);
+					sprintf(tmp_buf, "CMDCHANNEL %s", tmp_chan);
 					send(csock, tmp_buf, sizeof(tmp_buf), 0);
 				}
 
 				// just an alternative command to /channel
 				else if ( !StrBegins(user_input_str, "/join ") ) {
-					sscanf(user_input_str, "/join %s", tmp_nick);
+					sscanf(user_input_str, "/join %s", tmp_chan);
 					bzero(tmp_buf, MAX_SOCKET_BUF);
-					sprintf(tmp_buf, "CMDCHANNEL %s", tmp_nick);
+					sprintf(tmp_buf, "CMDCHANNEL %s", tmp_chan);
 					send(csock, tmp_buf, sizeof(tmp_buf), 0);
 				}	
+				
+				// send a private message, /msg <targetnick> <message>
+				else if ( !StrBegins(user_input_str, "/msg ") ) {
+					sscanf(user_input_str, "/msg %s %[^\n]", tmp_nick, tmp_msg);
+					bzero(tmp_buf, MAX_SOCKET_BUF);
+					sprintf(tmp_buf, "PRIVMSG %s %s", tmp_nick, tmp_msg);
+					send(csock, tmp_buf, sizeof(tmp_buf), 0);
+				}					
 				
 				else {
 					// let's not print the message right away
@@ -269,21 +279,34 @@ int main(int argc, char *argv[]) {
 				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] <%s> %s", tmp_time, tmp_nick, tmp_msg);
 			}
 			
+			if (!StrBegins(buffromserver, "PRIVMSGFROM ")) {
+				// we process the message from the server
+				sscanf(buffromserver, "PRIVMSGFROM %s %[^\n]", tmp_nick, tmp_msg);
+				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s has sent you a private message: %s", tmp_time, tmp_nick, tmp_msg);
+			}
+			
+			if (!StrBegins(buffromserver, "PRIVMSGOK ")) {
+				sscanf(buffromserver, "PRIVMSGOK %s %[^\n]", tmp_nick, tmp_msg);
+				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] you sent a private message to %s: %s", tmp_time, tmp_nick, tmp_msg);
+			}				
+			
 			if (!StrBegins(buffromserver, "CMDOK ")) {
 				sscanf(buffromserver, "CMDOK %[^\n]", tmp_msg);
-				// print the received message on the screen in the finalized format
 				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s", tmp_time, tmp_msg);
 			}
 			
 			if (!StrBegins(buffromserver, "CMDERROR ")) {
 				sscanf(buffromserver, "CMDERROR %[^\n]", tmp_msg);			
-				// print the received message on the screen in the finalized format
 				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s", tmp_time, tmp_msg);
 			}	
 		
 			if (!StrBegins(buffromserver, "CHANMSGERROR ")) {
 				sscanf(buffromserver, "CHANMSGERROR %[^\n]", tmp_msg);			
-				// print the received message on the screen in the finalized format
+				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s", tmp_time, tmp_msg);
+			}
+			
+			if (!StrBegins(buffromserver, "PRIVMSGERROR ")) {
+				sscanf(buffromserver, "PRIVMSGERROR %[^\n]", tmp_msg);			
 				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s", tmp_time, tmp_msg);
 			}					
 			
