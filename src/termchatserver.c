@@ -330,10 +330,11 @@ int StrBegins(const char *haystack, const char *beginning) {
 
 // process a command that we got from a chat client
 // cmd_msg example: CMDNICK Johnny\0
-// returns server reply in string, this should be sent to the client by the caller
-// CMDERROR Nick already taken.\0
-// CMDOK Nick changed.\0
-// CMDERROR Unknown command.
+// cmd_reply will be updated to the server reply, this should be sent to the client by the caller
+// some cmd_reply examples:
+//  CMDERROR Nick already taken.\0
+//  CMDOK Nick changed.\0
+//  CMDERROR Unknown command.\0
 void ProcessClientCmd(int clientindex, const char *cmd_msg, char *cmd_reply) {
 		// reset reply string
 		bzero(cmd_reply, MAX_SOCKET_BUF);

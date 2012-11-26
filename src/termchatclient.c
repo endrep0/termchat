@@ -191,6 +191,21 @@ int main(int argc, char *argv[]) {
 					send(csock, tmp_buf, sizeof(tmp_buf), 0);
 				}
 				
+				else if ( !StrBegins(user_input_str, "/channel ") ) {
+					sscanf(user_input_str, "/channel %s", tmp_nick);
+					bzero(tmp_buf, MAX_SOCKET_BUF);
+					sprintf(tmp_buf, "CMDCHANNEL %s", tmp_nick);
+					send(csock, tmp_buf, sizeof(tmp_buf), 0);
+				}
+
+				// just an alternative command to /channel
+				else if ( !StrBegins(user_input_str, "/join ") ) {
+					sscanf(user_input_str, "/join %s", tmp_nick);
+					bzero(tmp_buf, MAX_SOCKET_BUF);
+					sprintf(tmp_buf, "CMDCHANNEL %s", tmp_nick);
+					send(csock, tmp_buf, sizeof(tmp_buf), 0);
+				}	
+				
 				else {
 					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "%s", user_input_str);
 					if (chat_win_currenty < chat_win_height-2) 
