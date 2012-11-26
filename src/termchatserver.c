@@ -357,36 +357,37 @@ void ProcessClientCmd(int clientindex, const char *cmd_msg, char *reply) {
 
 // process a message that we got from a chat client
 // if we can accept the channel message, we relay it to others in the channel
-// and we send a CHANMSGOK reply to the sender
-// if we cannot accept the channel message, the reply will have CHANMSGERROR
+// and also to the sender - this serves as a acknowledgement of delivery
+// if we cannot accept the channel message, then we send a CHANMSGERROR
 void ProcessClientChanMsg(int clientindex, const char *chan_msg) {
-		// reset reply string
-		bzero(reply, MAX_SOCKET_BUF);
+		// reset msg_to_send string
+		bzero(msg_to_send, MAX_SOCKET_BUF);	
 		
 		// we don't accept channel messages, if the client hasn't set a nickname yet
 		if (chat_clients[clientindex].status == WAITING_FOR_NICK) {
-			sprintf(reply, "CHANMSGERROR Please set a nickname, and set the channel first.");
-			send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
+			sprintf(msg_to_send, "CHANMSGERROR Please set a nickname, and set the channel first.");
+			send(chat_clients[clientindex].socket, msg_to_send, strlen(msg_to_send), 0);
 			return;
 			}
 		
 		// client has set a nickname, but they also have to set the channel before sending channel msgs
 		if (chat_clients[clientindex].status == HAS_NICK_WAITING_FOR_CHANNEL) {
-			sprintf(reply, "CHANMSGERROR Please set the channel first.");
-			send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
+			sprintf(msg_to_send, "CHANMSGERROR Please set the channel first.");
+			send(chat_clients[clientindex].socket, msg_to_send, strlen(msg_to_send), 0);
 			return;
 		}
 		
 		// ok, so the client has a nick and is in a channel, we accept the channel message
 		char *channel = chat_clients[clientindex].channel;
 		
-		// send the message to the other clients in format: MSG sourcenick message
-		bzero(msg_to_send, MAX_SOCKET_BUF);		
-		// we cut the first 8 characters when sending back, and start with MSGFROM instead
+		// we got the message in format: CHANMSG hi there
+		// we send it back to the people in the channel in format: CHANMSGFROM sendernick hi there
+		// let's build the new message to send based on the original
 		sprintf(msg_to_send, "CHANMSGFROM %s %s", chat_clients[clientindex].nickname, chan_msg+8);		
+		
 		// send it to everyone on the particular channel
 		// even the source, so he knows that their message has been delivered
 		for (i=0; i < MAX_CHAT_CLIENTS && !strcmp(channel, chat_clients[i].channel); i++) {
 			send(chat_clients[i].socket, msg_to_send, strlen(msg_to_send), 0);
-		}		
+		}	
 }
