@@ -16,6 +16,7 @@
 #define MAX_SOCKET_BUF 1024
 #define MAX_MSG_LENGTH 80
 #define MAX_NICK_LENGTH 12
+#define MAX_CHANNEL_LENGTH 12
 
 #define DISCONNECTED 0
 #define CONNECTED 1
@@ -38,7 +39,7 @@ char servs[NI_MAXSERV];
 // TODO different MAX_SOCKET_BUF & MAXMSGLENGTH
 char buffer[MAX_SOCKET_BUF];
 char msg_to_send[MAX_SOCKET_BUF];
-char *cmd_reply;
+char cmd_reply[MAX_SOCKET_BUF];
 int len;
 int reuse;
 int i;
@@ -53,13 +54,15 @@ typedef struct {
 	char nickname[MAX_NICK_LENGTH];
 	// status: DISCONNECTED, CONNECTED, WAITING_FOR_NICK, HAS_NICK_WAITING_FOR_CHANNEL, CHATTING
 	int status;
+	char channel[MAX_CHANNEL_LENGTH];
 } chat_client_t;
 
 // we will hold MAX_CHAT_CLIENTS
 chat_client_t chat_clients[MAX_CHAT_CLIENTS];
 
 int StrBegins(const char *haystack, const char *beginning);
-char* ProcessClientCmd(int clientindex, const char *cmd_msg);
+//char* ProcessClientCmd(int clientindex, const char *cmd_msg);
+void ProcessClientCmd(int clientindex, const char *cmd_msg, char *cmd_reply);
 
 // this array will hold the connected client sockets
 //int connected_client_socks[MAX_CHAT_CLIENTS];
@@ -152,6 +155,8 @@ void ProcessPendingRead(int clientindex)
 			close(chat_clients[clientindex].socket);
 			chat_clients[clientindex].socket = 0;
 			chat_clients[clientindex].status = DISCONNECTED;
+			// start with no channel, make sure it has no garbage
+			bzero(chat_clients[clientindex].channel, MAX_CHANNEL_LENGTH);
 			//TODO
 			//free(chat_clients[clientindex].nickname);
 			break;
@@ -172,7 +177,7 @@ void ProcessPendingRead(int clientindex)
 				// process the client command, and prepare the reply
 				//if (NULL != cmd_reply) free(cmd_reply);
 				// todo mem leak?
-				cmd_reply = ProcessClientCmd(clientindex, buffer);
+				ProcessClientCmd(clientindex, buffer, cmd_reply);
 				// send back reply to the client
 				send(chat_clients[clientindex].socket, cmd_reply, strlen(cmd_reply), 0);
 				continue;
@@ -308,13 +313,19 @@ int main() {
 
 // returns 0 if haystack begins with beginning (case sensitive), -1 if not
 int StrBegins(const char *haystack, const char *beginning) {
+	int i;
 	if (NULL == haystack || NULL == beginning) 
 		return -1;
 	if (sizeof(beginning) > sizeof(haystack))
 		return -1;
 	
-	if (strstr(haystack, beginning) != NULL ) return 0;
-	else return -1;
+	// let's compare until the end of beginning
+	for (i=0; beginning[i]!='\0'; i++) {
+		if (haystack[i]!=beginning[i]) return -1;
+	}
+	
+	// we got this for, so they match
+	return 0;
 }
 
 // process a command that we got from a chat client
@@ -323,20 +334,28 @@ int StrBegins(const char *haystack, const char *beginning) {
 // CMDERROR Nick already taken.\0
 // CMDOK Nick changed.\0
 // CMDERROR Unknown command.
-char* ProcessClientCmd(int clientindex, const char *cmd_msg) {
-		
+void ProcessClientCmd(int clientindex, const char *cmd_msg, char *cmd_reply) {
+		// reset reply string
+		bzero(cmd_reply, MAX_SOCKET_BUF);
+				
 		if ( !(StrBegins(buffer, "CMDNICK ")) ) {
-			// todo when its dynamic
-			//if (NULL != chat_clients[clientindex].nickname)
-			//free(chat_clients[clientindex].nickname);
-			
 			char newnick[MAX_NICK_LENGTH];
 			sscanf(buffer, "CMDNICK %s", newnick);
 			strcpy(chat_clients[clientindex].nickname, newnick);
 			chat_clients[clientindex].status = HAS_NICK_WAITING_FOR_CHANNEL;
-			return "CMDOK Nick changed.";
+			sprintf(cmd_reply, "CMDOK Nick changed to %s", newnick);
+			return;
 		}
 		
+		if ( !(StrBegins(buffer, "CMDCHANNEL ")) ) {
+			char new_channel[MAX_CHANNEL_LENGTH];
+			sscanf(buffer, "CMDCHANNEL %s", new_channel);
+			strcpy(chat_clients[clientindex].channel, new_channel);
+			chat_clients[clientindex].status = CHATTING;
+			sprintf(cmd_reply, "CMDOK Now chatting in channel: %s.", new_channel);
+			return;
+		}		
+		
 		// if the CMD line didn't fit any of the commands, it has wrong syntax, reply this.
-		return "CMDERROR Unknown command.";
+		sprintf(cmd_reply, "CMDERROR Unknown command.");
 }

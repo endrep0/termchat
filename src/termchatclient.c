@@ -311,11 +311,17 @@ void SetNonblocking(int sock) {
 
 // returns 0 if haystack begins with beginning (case sensitive), -1 if not
 int StrBegins(const char *haystack, const char *beginning) {
+	int i;
 	if (NULL == haystack || NULL == beginning) 
 		return -1;
 	if (sizeof(beginning) > sizeof(haystack))
 		return -1;
 	
-	if (strstr(haystack, beginning) != NULL ) return 0;
-	else return -1;
+	// let's compare until the end of beginning
+	for (i=0; beginning[i]!='\0'; i++) {
+		if (haystack[i]!=beginning[i]) return -1;
+	}
+	
+	// we got this for, so they match
+	return 0;
 }
