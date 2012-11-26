@@ -274,7 +274,6 @@ int main() {
 	for (i=0; i<MAX_CHAT_CLIENTS; i++) {
 		chat_clients[i].socket=0;
 		chat_clients[i].status=DISCONNECTED;
-		strcpy(chat_clients[i].nickname,"tester");
 	}
 	
 	
@@ -342,7 +341,9 @@ void ProcessClientCmd(int clientindex, const char *cmd_msg, char *reply) {
 			char newnick[MAX_NICK_LENGTH];
 			sscanf(buffer, "CMDNICK %s", newnick);
 			strcpy(chat_clients[clientindex].nickname, newnick);
-			chat_clients[clientindex].status = HAS_NICK_WAITING_FOR_CHANNEL;
+			
+			if ( WAITING_FOR_NICK == chat_clients[clientindex].status )
+				chat_clients[clientindex].status = HAS_NICK_WAITING_FOR_CHANNEL;
 			sprintf(reply, "CMDOK Nick changed to %s", newnick);
 			return;
 		}
