@@ -378,12 +378,15 @@ void ProcessClientChanMsg(int clientindex, const char *chan_msg) {
 		}
 		
 		// ok, so the client has a nick and is in a channel, we accept the channel message
+		char *channel = chat_clients[clientindex].channel;
+		
 		// send the message to the other clients in format: MSG sourcenick message
-		bzero(msg_to_send, MAX_SOCKET_BUF);
+		bzero(msg_to_send, MAX_SOCKET_BUF);		
 		// we cut the first 8 characters when sending back, and start with MSGFROM instead
 		sprintf(msg_to_send, "CHANMSGFROM %s %s", chat_clients[clientindex].nickname, chan_msg+8);		
-		// send it to everyone, even the source, so he will know when the message gets delivered
-		for (i=0; i < MAX_CHAT_CLIENTS; i++) {
+		// send it to everyone on the particular channel
+		// even the source, so he knows that their message has been delivered
+		for (i=0; i < MAX_CHAT_CLIENTS && !strcmp(channel, chat_clients[i].channel); i++) {
 			send(chat_clients[i].socket, msg_to_send, strlen(msg_to_send), 0);
 		}		
 }
