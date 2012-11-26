@@ -305,7 +305,8 @@ int main(int argc, char *argv[]) {
 				sscanf(buffromserver, "CHANMSGFROM %s %[^\n]", tmp_nick, tmp_msg);
 				for (i=0; i<MAX_IGNORES ; i++) {
 					if (!strcmp(ignored_nicks[i],tmp_nick)) {
-						mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "Ignored a message.");
+						// only print in debug mode, but then we also have to watch chat_win_currenty++
+						mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "Ignored a channel message.");
 						break;
 					}
 				}
@@ -318,7 +319,16 @@ int main(int argc, char *argv[]) {
 			if (!StrBegins(buffromserver, "PRIVMSGFROM ")) {
 				// we process the message from the server
 				sscanf(buffromserver, "PRIVMSGFROM %s %[^\n]", tmp_nick, tmp_msg);
-				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s has sent you a private message: %s", tmp_time, tmp_nick, tmp_msg);
+				for (i=0; i<MAX_IGNORES ; i++) {
+					if (!strcmp(ignored_nicks[i],tmp_nick)) {
+						// only print in debug mode, but then we also have to watch chat_win_currenty++
+						mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "Ignored a private message.");
+						break;
+					}
+				}				
+				// if sender wasn't on ignore, print the received message on the screen in the finalized format
+				if (i==MAX_IGNORES)				
+					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s has sent you a private message: %s", tmp_time, tmp_nick, tmp_msg);		
 			}
 			
 			if (!StrBegins(buffromserver, "PRIVMSGOK ")) {
