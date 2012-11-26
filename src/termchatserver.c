@@ -357,26 +357,59 @@ void ProcessClientCmd(int clientindex, const char *cmd_msg, char *reply) {
 			}
 			
 			// ok, it wasn't taken
-			strcpy(chat_clients[clientindex].nickname, newnick);
+			// send the current nick updates to the other people in the channel
+			// CHANUPDATECHNICK oldnick newnick
+			for (i=0; i<MAX_CHAT_CLIENTS; i++) {
+				if ( i!=clientindex && !strcmp(chat_clients[clientindex].channel, chat_clients[i].channel) ) {
+					sprintf(reply, "CHANUPDATECHANGENICK %s %s", chat_clients[clientindex].nickname, newnick);
+					return;
+				}
+			}
 			
+			// now we can change the nick of the person
+			strcpy(chat_clients[clientindex].nickname, newnick);
 			if ( WAITING_FOR_NICK == chat_clients[clientindex].status )
 				chat_clients[clientindex].status = HAS_NICK_WAITING_FOR_CHANNEL;
 			sprintf(reply, "CMDNICKOK %s", newnick);
+	
 			return;
-			
-			// TODO
-			// CHANUPDATEJOIN
-			// CHANUPDATELEAVE
 		}
 		
 		if ( !(StrBegins(buffer, "CMDCHANNEL ")) ) {
 			char new_channel[MAX_CHANNEL_LENGTH];
 			sscanf(buffer, "CMDCHANNEL %s", new_channel);
+			
+			// send CHANUPDATELEAVE leavernick to other people in the old channel
+			for (i=0; i<MAX_CHAT_CLIENTS; i++) {
+				if ( i!=clientindex && !strcmp(chat_clients[clientindex].channel, chat_clients[i].channel) ) {
+					sprintf(reply, "CHANUPDATELEAVE %s", chat_clients[clientindex].nickname);
+					return;
+				}
+			}
+			
+			// send CHANUPDATEJOIN joinernick to other people in the new channel
+			for (i=0; i<MAX_CHAT_CLIENTS; i++) {
+				if ( i!=clientindex && !strcmp(chat_clients[clientindex].channel, new_channel) ) {
+					sprintf(reply, "CHANUPDATEJOIN %s", chat_clients[clientindex].nickname);
+					return;
+				}
+			}			
+			
+			// now we can change the channel of the person
 			strcpy(chat_clients[clientindex].channel, new_channel);
 			chat_clients[clientindex].status = CHATTING;
 			sprintf(reply, "CMDCHANNELOK %s", new_channel);
+			
+			// send all nicks to the new joiner
+			// TODO
+			// CHANUPDATEALLNICKS			
+			
+			
+
+			
 			return;
-		}		
+			
+		}
 		
 		// if the CMD line didn't fit any of the commands, it has wrong syntax, reply this.
 		sprintf(reply, "CMDERROR Unknown command.");
