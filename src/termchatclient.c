@@ -12,17 +12,21 @@
 #include <netdb.h>
 #include <time.h>
 
+#define DEBUG
+
 #define PORT "2233"
 #define MAX_MSG_LENGTH 80
 #define MAX_SOCKET_BUF 1024
 #define MAX_NICK_LENGTH 12
 #define MAX_CHANNEL_LENGTH 12
+#define MAX_IGNORES 10
 
 WINDOW *create_newwin(int height, int width, int starty, int startx);
 void SetNonblocking(int sock);
 int StrBegins(const char *haystack, const char *beginning);
 
 int main(int argc, char *argv[]) {
+	int i;
 	// network variables
 	struct addrinfo hints;
 	struct addrinfo* res;
@@ -34,6 +38,7 @@ int main(int argc, char *argv[]) {
 	char tmp_nick[MAX_NICK_LENGTH];
 	char tmp_buf[MAX_SOCKET_BUF];
 	char tmp_chan[MAX_CHANNEL_LENGTH];
+	char ignored_nicks[MAX_IGNORES][MAX_NICK_LENGTH];
 	// for printing time for msgs
 	time_t time_now;
 	char tmp_time[8];
@@ -54,6 +59,11 @@ int main(int argc, char *argv[]) {
 	int max_input_length = MAX_MSG_LENGTH;
 	// saved coordinates
 	int saved_x, saved_y;
+		
+	
+	//reset ignored nicks array
+	for (i=0; i<MAX_IGNORES; i++)
+		bzero(ignored_nicks[i],MAX_NICK_LENGTH);
 
 	// did we get a server as parameter
 	if(argc != 2) {
@@ -214,7 +224,25 @@ int main(int argc, char *argv[]) {
 					bzero(tmp_buf, MAX_SOCKET_BUF);
 					sprintf(tmp_buf, "PRIVMSG %s %s", tmp_nick, tmp_msg);
 					send(csock, tmp_buf, sizeof(tmp_buf), 0);
-				}					
+				}
+
+				// add someone to the ignore list
+				else if ( !StrBegins(user_input_str, "/ignore ") ) {
+					sscanf(user_input_str, "/ignore %s", tmp_nick);
+					// cycle through ignore slots, to see if there's any free
+					for (i=0; i<MAX_IGNORES && ignored_nicks[i]=='\0'; i++);
+					if (i==MAX_IGNORES) {
+						mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, 
+							"Ignore list full. You could remove an existing ignore using /unignore <nick>.");
+						chat_win_currenty++;					
+					}
+					else {
+						// ok we have a free slot on our hands, add the ignore
+						strcpy(ignored_nicks[i],tmp_nick);
+						mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "Ignore list updated.");
+						chat_win_currenty++;							
+					}
+				}	
 				
 				else {
 					// let's not print the message right away
@@ -275,8 +303,16 @@ int main(int argc, char *argv[]) {
 				// we process the message from the server
 				// NewLines are never sent by the server, we use %[^\n] to read whitespaces in the string too
 				sscanf(buffromserver, "CHANMSGFROM %s %[^\n]", tmp_nick, tmp_msg);
-				// print the received message on the screen in the finalized format
-				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] <%s> %s", tmp_time, tmp_nick, tmp_msg);
+				for (i=0; i<MAX_IGNORES ; i++) {
+					if (!strcmp(ignored_nicks[i],tmp_nick)) {
+						mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "Ignored a message.");
+						break;
+					}
+				}
+				
+				// if sender wasn't on ignore, print the received message on the screen in the finalized format
+				if (i==MAX_IGNORES)				
+					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] <%s> %s", tmp_time, tmp_nick, tmp_msg);
 			}
 			
 			if (!StrBegins(buffromserver, "PRIVMSGFROM ")) {
@@ -311,7 +347,7 @@ int main(int argc, char *argv[]) {
 			}					
 			
 			if (chat_win_currenty < chat_win_height-2) 
-			chat_win_currenty++;
+				chat_win_currenty++;
 			// todo is there an overflow here? box redraws which solves the problem
 			box(chat_win, 0 , 0);
 			wrefresh(chat_win);
