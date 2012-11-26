@@ -38,6 +38,7 @@ char servs[NI_MAXSERV];
 // TODO different MAX_SOCKET_BUF & MAXMSGLENGTH
 char buffer[MAX_SOCKET_BUF];
 char msg_to_send[MAX_SOCKET_BUF];
+char *cmd_reply;
 int len;
 int reuse;
 int i;
@@ -57,7 +58,8 @@ typedef struct {
 // we will hold MAX_CHAT_CLIENTS
 chat_client_t chat_clients[MAX_CHAT_CLIENTS];
 
-int strbegins(const char *haystack, const char *beginning);
+int StrBegins(const char *haystack, const char *beginning);
+char* ProcessClientCmd(int clientindex, const char *cmd_msg);
 
 // this array will hold the connected client sockets
 //int connected_client_socks[MAX_CHAT_CLIENTS];
@@ -164,26 +166,30 @@ void ProcessPendingRead(int clientindex)
 			printf("A client has sent: %s\n", buffer);
 			#endif
 			
-			if ( !(strbegins(buffer, "NICK ")) ) {
-				// todo when its dynamic
-				//if (NULL != chat_clients[clientindex].nickname)
-				//free(chat_clients[clientindex].nickname);
-				
-				char newnick[MAX_NICK_LENGTH];
-				sscanf(buffer, "NICK %s", newnick);
-				
-				strcpy(chat_clients[clientindex].nickname, newnick);
+			
+			// let's see if we got a command from the client
+			if ( !(StrBegins(buffer, "CMD")) ) {
+				// process the client command, and prepare the reply
+				//if (NULL != cmd_reply) free(cmd_reply);
+				// todo mem leak?
+				cmd_reply = ProcessClientCmd(clientindex, buffer);
+				// send back reply to the client
+				send(chat_clients[clientindex].socket, cmd_reply, strlen(cmd_reply), 0);
 				continue;
 			}
 			
-			// send the message to the other clients in format: MSG sourcenick message
-			bzero(msg_to_send, MAX_SOCKET_BUF);
-			sprintf(msg_to_send, "MSG %s %s", chat_clients[clientindex].nickname, buffer);
-			for (i=0; i < MAX_CHAT_CLIENTS; i++) {
-				// don't send it back to the source
-				if (i!= clientindex)
-					send(chat_clients[i].socket, msg_to_send, strlen(msg_to_send), 0);
-			}
+			if ( !(StrBegins(buffer, "MSG ")) ) {
+				// send the message to the other clients in format: MSG sourcenick message
+				bzero(msg_to_send, MAX_SOCKET_BUF);
+				// we cut the first 4 characters when sending back, and start with MSGFROM instead
+				sprintf(msg_to_send, "MSGFROM %s %s", chat_clients[clientindex].nickname, buffer+4);
+				for (i=0; i < MAX_CHAT_CLIENTS; i++) {
+					// don't send it back to the source
+					if (i!= clientindex)
+						send(chat_clients[i].socket, msg_to_send, strlen(msg_to_send), 0);
+				}
+			}			
+					
 		}
 	} while (bytes_read > 0);
 }
@@ -301,7 +307,7 @@ int main() {
 }
 
 // returns 0 if haystack begins with beginning (case sensitive), -1 if not
-int strbegins(const char *haystack, const char *beginning) {
+int StrBegins(const char *haystack, const char *beginning) {
 	if (NULL == haystack || NULL == beginning) 
 		return -1;
 	if (sizeof(beginning) > sizeof(haystack))
@@ -309,4 +315,28 @@ int strbegins(const char *haystack, const char *beginning) {
 	
 	if (strstr(haystack, beginning) != NULL ) return 0;
 	else return -1;
+}
+
+// process a command that we got from a chat client
+// cmd_msg example: CMDNICK Johnny\0
+// returns server reply in string, this should be sent to the client by the caller
+// CMDERROR Nick already taken.\0
+// CMDOK Nick changed.\0
+// CMDERROR Unknown command.
+char* ProcessClientCmd(int clientindex, const char *cmd_msg) {
+		
+		if ( !(StrBegins(buffer, "CMDNICK ")) ) {
+			// todo when its dynamic
+			//if (NULL != chat_clients[clientindex].nickname)
+			//free(chat_clients[clientindex].nickname);
+			
+			char newnick[MAX_NICK_LENGTH];
+			sscanf(buffer, "CMDNICK %s", newnick);
+			strcpy(chat_clients[clientindex].nickname, newnick);
+			chat_clients[clientindex].status = HAS_NICK_WAITING_FOR_CHANNEL;
+			return "CMDOK Nick changed.";
+		}
+		
+		// if the CMD line didn't fit any of the commands, it has wrong syntax, reply this.
+		return "CMDERROR Unknown command.";
 }

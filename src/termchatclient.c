@@ -19,7 +19,7 @@
 
 WINDOW *create_newwin(int height, int width, int starty, int startx);
 void SetNonblocking(int sock);
-int strbegins(const char *haystack, const char *beginning);
+int StrBegins(const char *haystack, const char *beginning);
 
 int main(int argc, char *argv[]) {
 	// network variables
@@ -184,9 +184,10 @@ int main(int argc, char *argv[]) {
 					chat_win_currenty++;
 					}
 					
-				if ( !strbegins(user_input_str, "/nick ")) {
+				if ( !StrBegins(user_input_str, "/nick ")) {
 					sscanf(user_input_str, "/nick %s", tmp_nick);
-					sprintf(tmp_buf, "NICK %s", tmp_nick);
+					bzero(tmp_buf, MAX_SOCKET_BUF);
+					sprintf(tmp_buf, "CMDNICK %s", tmp_nick);
 					send(csock, tmp_buf, sizeof(tmp_buf), 0);
 				}
 				
@@ -196,7 +197,10 @@ int main(int argc, char *argv[]) {
 						chat_win_currenty++;
 					// todo: else scroll
 					// send it to the server
-					send(csock, user_input_str, sizeof(user_input_str), 0);
+					// let's prepare the message in the needed format
+					bzero(tmp_buf, MAX_SOCKET_BUF);
+					sprintf(tmp_buf, "MSG %s", user_input_str);					
+					send(csock, tmp_buf, sizeof(tmp_buf), 0);
 				}
 
 				// reset input window with a horizontal line made of ' ' characters
@@ -233,21 +237,40 @@ int main(int argc, char *argv[]) {
 		// we can recv() without blocking, as csock is set to non-blocking
 		if ((lenfromserver = recv(csock, buffromserver, MAX_SOCKET_BUF, 0)) > 0) {
 			getyx(input_win, saved_y, saved_x);
-			sscanf(buffromserver, "MSG %s %s", tmp_nick, tmp_msg);
+			bzero(tmp_msg, MAX_MSG_LENGTH);
+
 			
 			// get current time into time_now, and then print into tmp_time string
 			time_now = time (0);
-			strftime(tmp_time, 9, "%H:%M:%S", localtime (&time_now));
-
-			// print the received message on the screen in the finalized format
-			mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] <%s> %s", tmp_time, tmp_nick, tmp_msg);
+			strftime(tmp_time, 9, "%H:%M:%S", localtime (&time_now));			
+			
+			if (!StrBegins(buffromserver, "MSGFROM ")) {
+				// we process the message from the server
+				// NewLines are never sent by the server, we use %[^\n] to read whitespaces in the string too
+				sscanf(buffromserver, "MSGFROM %s %[^\n]", tmp_nick, tmp_msg);
+				// print the received message on the screen in the finalized format
+				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] <%s> %s", tmp_time, tmp_nick, tmp_msg);
+			}
+			
+			if (!StrBegins(buffromserver, "CMDOK ")) {
+				sscanf(buffromserver, "CMDOK %[^\n]", tmp_msg);
+				// print the received message on the screen in the finalized format
+				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s", tmp_time, tmp_msg);
+			}
+			
+			if (!StrBegins(buffromserver, "CMDERROR ")) {
+				sscanf(buffromserver, "CMDERROR %[^\n]", tmp_msg);			
+				// print the received message on the screen in the finalized format
+				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s", tmp_time, tmp_msg);
+			}			
+			
 			if (chat_win_currenty < chat_win_height-2) 
-				chat_win_currenty++;
+			chat_win_currenty++;
 			// todo is there an overflow here? box redraws which solves the problem
 			box(chat_win, 0 , 0);
 			wrefresh(chat_win);
 			wmove(input_win, saved_y, saved_x);
-			wrefresh(input_win);			
+			wrefresh(input_win);
 		}
 
 	}
@@ -287,7 +310,7 @@ void SetNonblocking(int sock) {
 }
 
 // returns 0 if haystack begins with beginning (case sensitive), -1 if not
-int strbegins(const char *haystack, const char *beginning) {
+int StrBegins(const char *haystack, const char *beginning) {
 	if (NULL == haystack || NULL == beginning) 
 		return -1;
 	if (sizeof(beginning) > sizeof(haystack))
