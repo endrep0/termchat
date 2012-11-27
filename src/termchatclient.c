@@ -349,7 +349,17 @@ int main(int argc, char *argv[]) {
 			if (!StrBegins(buffromserver, "CMDERROR ")) {
 				sscanf(buffromserver, "CMDERROR %[^\n]", tmp_msg);			
 				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s", tmp_time, tmp_msg);
-			}	
+			}
+			
+			if (!StrBegins(buffromserver, "CHANGECHANNELERROR ")) {
+				sscanf(buffromserver, "CHANGECHANNELERROR %[^\n]", tmp_msg);			
+				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s", tmp_time, tmp_msg);
+			}				
+			
+			if (!StrBegins(buffromserver, "CHANGENICKERROR ")) {
+				sscanf(buffromserver, "CHANGENICKERROR %[^\n]", tmp_msg);			
+				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s", tmp_time, tmp_msg);
+			}				
 		
 			if (!StrBegins(buffromserver, "CHANMSGERROR ")) {
 				sscanf(buffromserver, "CHANMSGERROR %[^\n]", tmp_msg);			

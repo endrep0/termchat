@@ -349,7 +349,7 @@ void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
 		
 		// is this nick really new?
 		if (!strcmp(newnick, chat_clients[clientindex].nickname)) {
-			sprintf(reply, "CMDERROR Your nick is already %s", newnick);
+			sprintf(reply, "CHANGENICKERROR Your nick is already %s", newnick);
 			send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
 			return;
 		}			
@@ -357,7 +357,7 @@ void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
 		// check if nick is taken
 		for (i=0; i<MAX_CHAT_CLIENTS; i++) {
 			if (!strcmp(newnick, chat_clients[i].nickname)) {
-				sprintf(reply, "CMDERROR The %s nickname is already taken.", newnick);
+				sprintf(reply, "CHANGENICKERROR The %s nickname is already taken.", newnick);
 				send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
 				return;
 			}
@@ -391,10 +391,16 @@ void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
 // the client will get a CHANGECHANNELOK on success, and a list of others in the new channel
 void ProcessClientChangeChan(int clientindex, const char *cmd_msg) {
 
-		// TODO shouldnt work without a nick
-
 		// reset reply string
 		bzero(reply, MAX_SOCKET_BUF);
+		
+		// can't join channel without a nickname
+		if (chat_clients[clientindex].status == WAITING_FOR_NICK) {
+			sprintf(msg_to_send, "CHANGECHANNELERROR Please set a nickname before joining a channel.");
+			send(chat_clients[clientindex].socket, msg_to_send, strlen(msg_to_send), 0);
+			return;
+			}		
+
 
 		if ( !(StrBegins(buffer, "CHANGECHANNEL ")) ) {
 			char new_channel[MAX_CHANNEL_LENGTH];
