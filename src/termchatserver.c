@@ -175,13 +175,8 @@ void ProcessPendingRead(int clientindex)
 			
 			// let's see if we got a command from the client
 			if ( !(StrBegins(buffer, "CMD")) ) {
-				// process the client command, and prepare the reply
-				//if (NULL != reply) free(reply);
-				// todo mem leak?
-				ProcessClientCmd(clientindex, buffer, reply);
-				// send back reply to the client
-				//send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
-				// CHANGED, THE SUBROUTINE WILL DO THIS
+				// process the client command
+				ProcessClientCmd(clientindex, buffer);
 				continue;
 			}
 			
@@ -408,12 +403,12 @@ void ProcessClientCmd(int clientindex, const char *cmd_msg) {
 			
 			// send all nicks to the new joiner
 			// format: CHANUPDATEALLNICKS nick1 nick2 etc
-			sprintf(reply, "CHANUPDATEALLNICKS", new_channel);			
+			sprintf(reply, "CHANUPDATEALLNICKS");			
 			for (i=0; i<MAX_CHAT_CLIENTS; i++) {
 				if ( !strcmp(chat_clients[i].channel, new_channel) ) {
 					// we found someone in the channel
 					// if reply is not too long yet, add it
-					if ((sizeof(reply) + 1 + sizeof(chat_clients[i].nickname) < MAX_SOCKET_BUF ) {
+					if ((sizeof(reply) + 1 + sizeof(chat_clients[i].nickname)) < MAX_SOCKET_BUF ) {
 						strcat(reply, " ");
 						strcat(reply, chat_clients[i].nickname);
 					}
