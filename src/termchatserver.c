@@ -61,7 +61,8 @@ chat_client_t chat_clients[MAX_CHAT_CLIENTS];
 
 int StrBegins(const char *haystack, const char *beginning);
 
-void ProcessClientCmd(int clientindex, const char *cmd_msg);
+void ProcessClientCmdNick(int clientindex, const char *cmd_msg);
+void ProcessClientCmdChan(int clientindex, const char *cmd_msg);
 void ProcessClientChanMsg(int clientindex, const char *chan_msg);
 void ProcessClientPrivMsg(int clientindex, const char *priv_msg);
 
@@ -173,10 +174,17 @@ void ProcessPendingRead(int clientindex)
 			#endif
 			
 			
-			// let's see if we got a command from the client
-			if ( !(StrBegins(buffer, "CMD")) ) {
+			// let's see if we got a change nick command from the client
+			if ( !(StrBegins(buffer, "CMDNICK ")) ) {
 				// process the client command
-				ProcessClientCmd(clientindex, buffer);
+				ProcessClientCmdNick(clientindex, buffer);
+				continue;
+			}
+			
+			// let's see if we got a change channel command from the client
+			if ( !(StrBegins(buffer, "CMDCHAN ")) ) {
+				// process the client command
+				ProcessClientCmdChan(clientindex, buffer);
 				continue;
 			}
 			
@@ -188,7 +196,12 @@ void ProcessPendingRead(int clientindex)
 			if ( !(StrBegins(buffer, "PRIVMSG ")) ) {
 				ProcessClientPrivMsg(clientindex, buffer);
 				continue;
-			}				
+			}
+		
+			// if the client command isn't recognized, reply this.
+			sprintf(reply, "CMDERROR Unknown command.");			
+
+			
 					
 		}
 	} while (bytes_read > 0);
@@ -322,62 +335,66 @@ int StrBegins(const char *haystack, const char *beginning) {
 	return 0;
 }
 
-// process a command that we got from a chat client
+
+// process a change nick command from a client
 // cmd_msg example: CMDNICK Johnny
-// will send the needed replies to the source client, and also to other clients if they're affected
+// will tell others in the old channel about the change nick (CHANUPDATECHANGENICK)
 // some reply examples:
-//  CMDERROR Nick already taken.
 //  CMDNICKOK newnick
-//  CMDCHANNELOK newchannel
-//  CMDERROR Unknown command.
-void ProcessClientCmd(int clientindex, const char *cmd_msg) {
+void ProcessClientCmdNick(int clientindex, const char *cmd_msg) {
 		// reset reply string
 		bzero(reply, MAX_SOCKET_BUF);
-				
-		if ( !(StrBegins(buffer, "CMDNICK ")) ) {
-			char newnick[MAX_NICK_LENGTH];
-			sscanf(buffer, "CMDNICK %s", newnick);
-			
-			// is this nick really new?
-			if (!strcmp(newnick, chat_clients[clientindex].nickname)) {
-				sprintf(reply, "CMDERROR Your nick is already %s", newnick);
+		char newnick[MAX_NICK_LENGTH];
+		sscanf(buffer, "CMDNICK %s", newnick);
+		
+		// is this nick really new?
+		if (!strcmp(newnick, chat_clients[clientindex].nickname)) {
+			sprintf(reply, "CMDERROR Your nick is already %s", newnick);
+			send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
+			return;
+		}			
+		
+		// check if nick is taken
+		for (i=0; i<MAX_CHAT_CLIENTS; i++) {
+			if (!strcmp(newnick, chat_clients[i].nickname)) {
+				sprintf(reply, "CMDERROR The %s nickname is already taken.", newnick);
 				send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
 				return;
-			}			
-			
-			// check if nick is taken
-			for (i=0; i<MAX_CHAT_CLIENTS; i++) {
-				if (!strcmp(newnick, chat_clients[i].nickname)) {
-					sprintf(reply, "CMDERROR The %s nickname is already taken.", newnick);
-					send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
-					return;
-				}
 			}
-			
-			// ok, it wasn't taken
-			// send the current nick updates to the other people in the channel
-			// CHANUPDATECHNICK oldnick newnick
-			for (i=0; i<MAX_CHAT_CLIENTS; i++) {
-				if ( i!=clientindex && !strcmp(chat_clients[clientindex].channel, chat_clients[i].channel) ) {
-					sprintf(reply, "CHANUPDATECHANGENICK %s %s", chat_clients[clientindex].nickname, newnick);
-					send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
-					return;
-				}
-			}
-			
-			// now we can change the nick of the person
-			strcpy(chat_clients[clientindex].nickname, newnick);
-			if ( WAITING_FOR_NICK == chat_clients[clientindex].status )
-				chat_clients[clientindex].status = HAS_NICK_WAITING_FOR_CHANNEL;
-			sprintf(reply, "CMDNICKOK %s", newnick);
-			send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
-	
-			return;
 		}
 		
-		if ( !(StrBegins(buffer, "CMDCHANNEL ")) ) {
+		// ok, it wasn't taken
+		// send the current nick updates to the other people in the channel
+		// CHANUPDATECHNICK oldnick newnick
+		for (i=0; i<MAX_CHAT_CLIENTS; i++) {
+			if ( i!=clientindex && !strcmp(chat_clients[clientindex].channel, chat_clients[i].channel) ) {
+				sprintf(reply, "CHANUPDATECHANGENICK %s %s", chat_clients[clientindex].nickname, newnick);
+				send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
+				return;
+			}
+		}
+		
+		// now we can change the nick of the person
+		strcpy(chat_clients[clientindex].nickname, newnick);
+		if ( WAITING_FOR_NICK == chat_clients[clientindex].status )
+			chat_clients[clientindex].status = HAS_NICK_WAITING_FOR_CHANNEL;
+		sprintf(reply, "CMDNICKOK %s", newnick);
+		send(chat_clients[clientindex].socket, reply, strlen(reply), 0);			
+}
+
+
+// process a change channel from a client
+// cmd_msg example: CMDCHANNEL budapest
+// will tell others in the old channel about the leaver (CHANUPDATELEAVE)
+// and others in the new channel about the new joiner (CHANUPDATEJOIN)
+// the client will get a CMDCHANOK on success, and a list of others in the new channel
+void ProcessClientCmdChan(int clientindex, const char *cmd_msg) {
+		// reset reply string
+		bzero(reply, MAX_SOCKET_BUF);
+
+		if ( !(StrBegins(buffer, "CMDCHAN ")) ) {
 			char new_channel[MAX_CHANNEL_LENGTH];
-			sscanf(buffer, "CMDCHANNEL %s", new_channel);
+			sscanf(buffer, "CMDCHAN %s", new_channel);
 			
 			// send CHANUPDATELEAVE leavernick to other people in the old channel
 			for (i=0; i<MAX_CHAT_CLIENTS; i++) {
@@ -398,7 +415,7 @@ void ProcessClientCmd(int clientindex, const char *cmd_msg) {
 			// now we can change the channel of the person
 			strcpy(chat_clients[clientindex].channel, new_channel);
 			chat_clients[clientindex].status = CHATTING;
-			sprintf(reply, "CMDCHANNELOK %s", new_channel);
+			sprintf(reply, "CMDCHANOK %s", new_channel);
 			send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
 			
 			// send all nicks to the new joiner

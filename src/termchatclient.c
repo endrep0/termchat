@@ -206,7 +206,7 @@ int main(int argc, char *argv[]) {
 				else if ( !StrBegins(user_input_str, "/channel ") ) {
 					sscanf(user_input_str, "/channel %s", tmp_chan);
 					bzero(tmp_buf, MAX_SOCKET_BUF);
-					sprintf(tmp_buf, "CMDCHANNEL %s", tmp_chan);
+					sprintf(tmp_buf, "CMDCHAN %s", tmp_chan);
 					send(csock, tmp_buf, sizeof(tmp_buf), 0);
 				}
 
@@ -214,7 +214,7 @@ int main(int argc, char *argv[]) {
 				else if ( !StrBegins(user_input_str, "/join ") ) {
 					sscanf(user_input_str, "/join %s", tmp_chan);
 					bzero(tmp_buf, MAX_SOCKET_BUF);
-					sprintf(tmp_buf, "CMDCHANNEL %s", tmp_chan);
+					sprintf(tmp_buf, "CMDCHAN %s", tmp_chan);
 					send(csock, tmp_buf, sizeof(tmp_buf), 0);
 				}	
 				
@@ -341,7 +341,7 @@ int main(int argc, char *argv[]) {
 				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] Your nick is now %s.", tmp_time, tmp_nick);
 			}
 			
-			if (!StrBegins(buffromserver, "CMDCHANNELOK ")) {
+			if (!StrBegins(buffromserver, "CMDCHANOK ")) {
 				sscanf(buffromserver, "CMDCHANNELOK %s", tmp_chan);
 				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] You are now chatting in channel %s", tmp_time, tmp_chan);
 			}			
