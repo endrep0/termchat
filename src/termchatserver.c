@@ -376,6 +376,7 @@ void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
 		
 		// now we can change the nick of the person
 		strcpy(chat_clients[clientindex].nickname, newnick);
+		// only have to change status if client hasn't had a nick before
 		if ( WAITING_FOR_NICK == chat_clients[clientindex].status )
 			chat_clients[clientindex].status = HAS_NICK_WAITING_FOR_CHANNEL;
 		sprintf(reply, "CHANGENICKOK %s", newnick);
@@ -389,6 +390,9 @@ void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
 // and others in the new channel about the new joiner (CHANUPDATEJOIN)
 // the client will get a CHANGECHANNELOK on success, and a list of others in the new channel
 void ProcessClientChangeChan(int clientindex, const char *cmd_msg) {
+
+		// TODO shouldnt work without a nick
+
 		// reset reply string
 		bzero(reply, MAX_SOCKET_BUF);
 
