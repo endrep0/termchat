@@ -60,8 +60,8 @@ typedef struct {
 chat_client_t chat_clients[MAX_CHAT_CLIENTS];
 
 int StrBegins(const char *haystack, const char *beginning);
-//char* ProcessClientCmd(int clientindex, const char *cmd_msg);
-void ProcessClientCmd(int clientindex, const char *cmd_msg, char *reply);
+
+void ProcessClientCmd(int clientindex, const char *cmd_msg);
 void ProcessClientChanMsg(int clientindex, const char *chan_msg);
 void ProcessClientPrivMsg(int clientindex, const char *priv_msg);
 
@@ -328,14 +328,14 @@ int StrBegins(const char *haystack, const char *beginning) {
 }
 
 // process a command that we got from a chat client
-// cmd_msg example: CMDNICK Johnny\0
-// reply will be updated to the server reply, this should be sent to the client by the caller
+// cmd_msg example: CMDNICK Johnny
+// will send the needed replies to the source client, and also to other clients if they're affected
 // some reply examples:
-//  CMDERROR Nick already taken.\0
+//  CMDERROR Nick already taken.
 //  CMDNICKOK newnick
 //  CMDCHANNELOK newchannel
-//  CMDERROR Unknown command.\0
-void ProcessClientCmd(int clientindex, const char *cmd_msg, char *reply) {
+//  CMDERROR Unknown command.
+void ProcessClientCmd(int clientindex, const char *cmd_msg) {
 		// reset reply string
 		bzero(reply, MAX_SOCKET_BUF);
 				
@@ -389,7 +389,6 @@ void ProcessClientCmd(int clientindex, const char *cmd_msg, char *reply) {
 				if ( i!=clientindex && !strcmp(chat_clients[i].channel, new_channel) ) {
 					sprintf(reply, "CHANUPDATELEAVE %s", chat_clients[clientindex].nickname);
 					send(chat_clients[i].socket, reply, strlen(reply), 0);
-					return;
 				}
 			}
 			
@@ -398,7 +397,6 @@ void ProcessClientCmd(int clientindex, const char *cmd_msg, char *reply) {
 				if ( i!=clientindex && !strcmp(chat_clients[i].channel, new_channel) ) {
 					sprintf(reply, "CHANUPDATEJOIN %s", chat_clients[clientindex].nickname);
 					send(chat_clients[i].socket, reply, strlen(reply), 0);
-					return;
 				}
 			}
 			
@@ -426,13 +424,13 @@ void ProcessClientCmd(int clientindex, const char *cmd_msg, char *reply) {
 						bzero(reply, MAX_SOCKET_BUF);
 						sprintf(reply, "CHANUPDATEALLNICKS %s", chat_clients[i].nickname);
 					}
-					// we went through all the users, the reply is ready to be sent
-					// for small channels, this is the only CHANUPDATEALLNICKS reply
-					// for big channels, this is the last one
-					send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
-					return;
 				}
 			}		
+			// we went through all the users, the reply is ready to be sent
+			// for small channels, this is the only CHANUPDATEALLNICKS reply
+			//  it will contain at least one nickname (the new joiner's own)
+			// for big channels, this is the last one
+			send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
 			return;
 			
 		}
