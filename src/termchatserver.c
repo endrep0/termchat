@@ -372,7 +372,7 @@ void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
 		// send the current nick updates to the other people in the channel
 		// CHANUPDATECHNICK oldnick newnick
 		for (i=0; i<MAX_CHAT_CLIENTS; i++) {
-			if ( i!=clientindex && !strcmp(chat_clients[clientindex].channel, chat_clients[i].channel) ) {
+			if ( i!=clientindex && chat_clients[i].status == CHATTING && !strcmp(chat_clients[clientindex].channel, chat_clients[i].channel) ) {
 				sprintf(reply, "CHANUPDATECHANGENICK %s %s", chat_clients[clientindex].nickname, newnick);
 				send(chat_clients[i].socket, reply, strlen(reply), 0);
 			}
@@ -410,17 +410,22 @@ void ProcessClientChangeChan(int clientindex, const char *cmd_msg) {
 			char new_channel[MAX_CHANNEL_LENGTH];
 			sscanf(buffer, "CHANGECHANNEL %s", new_channel);
 			
+			// if this isn't the intial channel join, but a real channel change,
 			// send CHANUPDATELEAVE leavernick to other people in the old channel
-			for (i=0; i<MAX_CHAT_CLIENTS; i++) {
-				if ( i!=clientindex && !strcmp(chat_clients[i].channel, new_channel) ) {
-					sprintf(reply, "CHANUPDATELEAVE %s", chat_clients[clientindex].nickname);
-					send(chat_clients[i].socket, reply, strlen(reply), 0);
+			if (chat_clients[clientindex].status == CHATTING) {
+				for (i=0; i<MAX_CHAT_CLIENTS; i++) {
+					if ( i!=clientindex && chat_clients[i].status == CHATTING 
+							&& !strcmp(chat_clients[i].channel, chat_clients[clientindex].channel) ) 
+					{
+						sprintf(reply, "CHANUPDATELEAVE %s", chat_clients[clientindex].nickname);
+						send(chat_clients[i].socket, reply, strlen(reply), 0);
+					}
 				}
 			}
 			
 			// send CHANUPDATEJOIN joinernick to other people in the new channel
 			for (i=0; i<MAX_CHAT_CLIENTS; i++) {
-				if ( i!=clientindex && !strcmp(chat_clients[i].channel, new_channel) ) {
+				if ( i!=clientindex && chat_clients[i].status == CHATTING && !strcmp(chat_clients[i].channel, new_channel) ) {
 					sprintf(reply, "CHANUPDATEJOIN %s", chat_clients[clientindex].nickname);
 					send(chat_clients[i].socket, reply, strlen(reply), 0);
 				}

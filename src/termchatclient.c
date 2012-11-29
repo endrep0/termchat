@@ -35,7 +35,8 @@ int main(int argc, char *argv[]) {
 	char buffromserver[MAX_SOCKET_BUF];
 	int lenfromserver;
 	char tmp_msg[MAX_MSG_LENGTH];
-	char tmp_nick[MAX_NICK_LENGTH];
+	char tmp_nick1[MAX_NICK_LENGTH];
+	char tmp_nick2[MAX_NICK_LENGTH];
 	char tmp_buf[MAX_SOCKET_BUF];
 	char tmp_chan[MAX_CHANNEL_LENGTH];
 	char ignored_nicks[MAX_IGNORES][MAX_NICK_LENGTH];
@@ -197,9 +198,9 @@ int main(int argc, char *argv[]) {
 					}
 					
 				if ( !StrBegins(user_input_str, "/nick ")) {
-					sscanf(user_input_str, "/nick %s", tmp_nick);
+					sscanf(user_input_str, "/nick %s", tmp_nick1);
 					bzero(tmp_buf, MAX_SOCKET_BUF);
-					sprintf(tmp_buf, "CHANGENICK %s", tmp_nick);
+					sprintf(tmp_buf, "CHANGENICK %s", tmp_nick1);
 					send(csock, tmp_buf, sizeof(tmp_buf), 0);
 				}
 				
@@ -220,15 +221,15 @@ int main(int argc, char *argv[]) {
 				
 				// send a private message, /msg <targetnick> <message>
 				else if ( !StrBegins(user_input_str, "/msg ") ) {
-					sscanf(user_input_str, "/msg %s %[^\n]", tmp_nick, tmp_msg);
+					sscanf(user_input_str, "/msg %s %[^\n]", tmp_nick1, tmp_msg);
 					bzero(tmp_buf, MAX_SOCKET_BUF);
-					sprintf(tmp_buf, "PRIVMSG %s %s", tmp_nick, tmp_msg);
+					sprintf(tmp_buf, "PRIVMSG %s %s", tmp_nick1, tmp_msg);
 					send(csock, tmp_buf, sizeof(tmp_buf), 0);
 				}
 
 				// add someone to the ignore list
 				else if ( !StrBegins(user_input_str, "/ignore ") ) {
-					sscanf(user_input_str, "/ignore %s", tmp_nick);
+					sscanf(user_input_str, "/ignore %s", tmp_nick1);
 					// cycle through ignore slots, to see if there's any free
 					for (i=0; i<MAX_IGNORES && ignored_nicks[i]=='\0'; i++);
 					if (i==MAX_IGNORES) {
@@ -238,7 +239,7 @@ int main(int argc, char *argv[]) {
 					}
 					else {
 						// ok we have a free slot on our hands, add the ignore
-						strcpy(ignored_nicks[i],tmp_nick);
+						strcpy(ignored_nicks[i],tmp_nick1);
 						mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "Ignore list updated.");
 						chat_win_currenty++;							
 					}
@@ -302,9 +303,9 @@ int main(int argc, char *argv[]) {
 			if (!StrBegins(buffromserver, "CHANMSGFROM ")) {
 				// we process the message from the server
 				// NewLines are never sent by the server, we use %[^\n] to read whitespaces in the string too
-				sscanf(buffromserver, "CHANMSGFROM %s %[^\n]", tmp_nick, tmp_msg);
+				sscanf(buffromserver, "CHANMSGFROM %s %[^\n]", tmp_nick1, tmp_msg);
 				for (i=0; i<MAX_IGNORES ; i++) {
-					if (!strcmp(ignored_nicks[i],tmp_nick)) {
+					if (!strcmp(ignored_nicks[i],tmp_nick1)) {
 						// only print in debug mode, but then we also have to watch chat_win_currenty++
 						mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "Ignored a channel message.");
 						break;
@@ -313,14 +314,14 @@ int main(int argc, char *argv[]) {
 				
 				// if sender wasn't on ignore, print the received message on the screen in the finalized format
 				if (i==MAX_IGNORES)				
-					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] <%s> %s", tmp_time, tmp_nick, tmp_msg);
+					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] <%s> %s", tmp_time, tmp_nick1, tmp_msg);
 			}
 			
 			if (!StrBegins(buffromserver, "PRIVMSGFROM ")) {
 				// we process the message from the server
-				sscanf(buffromserver, "PRIVMSGFROM %s %[^\n]", tmp_nick, tmp_msg);
+				sscanf(buffromserver, "PRIVMSGFROM %s %[^\n]", tmp_nick1, tmp_msg);
 				for (i=0; i<MAX_IGNORES ; i++) {
-					if (!strcmp(ignored_nicks[i],tmp_nick)) {
+					if (!strcmp(ignored_nicks[i],tmp_nick1)) {
 						// only print in debug mode, but then we also have to watch chat_win_currenty++
 						mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "Ignored a private message.");
 						break;
@@ -328,23 +329,44 @@ int main(int argc, char *argv[]) {
 				}				
 				// if sender wasn't on ignore, print the received message on the screen in the finalized format
 				if (i==MAX_IGNORES)				
-					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s has sent you a private message: %s", tmp_time, tmp_nick, tmp_msg);		
+					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s has sent you a private message: %s", tmp_time, tmp_nick1, tmp_msg);		
 			}
 			
 			if (!StrBegins(buffromserver, "PRIVMSGOK ")) {
-				sscanf(buffromserver, "PRIVMSGOK %s %[^\n]", tmp_nick, tmp_msg);
-				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] you sent a private message to %s: %s", tmp_time, tmp_nick, tmp_msg);
+				sscanf(buffromserver, "PRIVMSGOK %s %[^\n]", tmp_nick1, tmp_msg);
+				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] you sent a private message to %s: %s", tmp_time, tmp_nick1, tmp_msg);
 			}				
 			
 			if (!StrBegins(buffromserver, "CHANGENICKOK ")) {
-				sscanf(buffromserver, "CHANGENICKOK %[^\n]", tmp_nick);
-				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] Your nick is now %s.", tmp_time, tmp_nick);
+				sscanf(buffromserver, "CHANGENICKOK %[^\n]", tmp_nick1);
+				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] Your nick is now %s.", tmp_time, tmp_nick1);
 			}
+			
+			if (!StrBegins(buffromserver, "CHANUPDATECHANGENICK ")) {
+				sscanf(buffromserver, "CHANUPDATECHANGENICK %s %[^\n]", tmp_nick1, tmp_nick2);
+				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s is now known as %s", tmp_time, tmp_nick1, tmp_nick2);
+			}					
 			
 			if (!StrBegins(buffromserver, "CHANGECHANNELOK ")) {
 				sscanf(buffromserver, "CHANGECHANNELNELOK %[^\n]", tmp_chan);
-				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] You are now chatting in channel %s", tmp_time, tmp_chan);
-			}			
+				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] You are now chatting in channel %s.", tmp_time, tmp_chan);
+			}
+			
+			if (!StrBegins(buffromserver, "CHANUPDATEJOIN ")) {
+				sscanf(buffromserver, "CHANUPDATEJOIN %[^\n]", tmp_nick1);
+				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s has joined the channel.", tmp_time, tmp_nick1);
+			}
+			
+
+			if (!StrBegins(buffromserver, "CHANUPDATELEAVE ")) {
+				sscanf(buffromserver, "CHANUPDATELEAVE %[^\n]", tmp_nick1);
+				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s has left the channel.", tmp_time, tmp_nick1);
+			}
+			
+			if (!StrBegins(buffromserver, "CHANUPDATEALLNICK ")) {
+				sscanf(buffromserver, "CHANUPDATEALLNICKS %[^\n]", tmp_buf);
+				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] People in this channel: %s", tmp_time, tmp_buf);
+			}						
 			
 			if (!StrBegins(buffromserver, "CMDERROR ")) {
 				sscanf(buffromserver, "CMDERROR %[^\n]", tmp_msg);			
