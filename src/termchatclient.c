@@ -192,14 +192,12 @@ int main(int argc, char *argv[]) {
 				if (strstr(user_input_str,"/exit") || strstr(user_input_str,"/quit")  )
 					break;
 				if (strstr(user_input_str,"/help")) {
-					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "Showing help:");
-					chat_win_currenty++;
-					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, " protecting your nick on this server with a password: /pass <password>");
-					chat_win_currenty++;
-					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, " changing your nick: /nick <newnick> [password]");
-					chat_win_currenty++;
-					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, " changing channel: /channel <newchannel>");
-					chat_win_currenty++;
+					AddMsgToChatWindow("Showing help:", false);
+					AddMsgToChatWindow(" protecting your nick on this server with a password: /pass <password>", false);
+					AddMsgToChatWindow(" changing your nick: /nick <newnick> [password]", false);
+					AddMsgToChatWindow(" changing channel: /channel <newchannel>", false);
+					AddMsgToChatWindow(" private message: /msg <nick> <message>", false);
+					AddMsgToChatWindow(" ignoring someone: /ignore nick", false);
 					}
 					
 				if ( !StrBegins(user_input_str, "/nick ")) {
@@ -238,10 +236,10 @@ int main(int argc, char *argv[]) {
 					// cycle through ignore slots, to see if there's any free
 					for (i=0; i<MAX_IGNORES && ignored_nicks[i]=='\0'; i++);
 					if (i==MAX_IGNORES) {
-						mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, 
-							"Ignore list full. You could remove an existing ignore using /unignore <nick>.");
-						chat_win_currenty++;					
+						AddMsgToChatWindow("Ignore list full. You could remove an existing ignore using /unignore <nick>.", false);			
 					}
+					// todo unignore
+
 					else {
 						// ok we have a free slot on our hands, add the ignore
 						strcpy(ignored_nicks[i],tmp_nick1);
@@ -251,17 +249,14 @@ int main(int argc, char *argv[]) {
 				}	
 				
 				else {
-					// let's not print the message right away
-					// we wait for the server ACK, we only print if delivered
-					//mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "%s", user_input_str);
-					//if (chat_win_currenty < chat_win_height-2) 
-					//	chat_win_currenty++;
-					// todo: else scroll
-					// send it to the server
-					// let's prepare the message in the needed format
+					// if it didn't match any of the commands, it is a plain message to the channel
+					// let's prepare it in the needed format, and send it to the server
 					bzero(tmp_buf, MAX_SOCKET_BUF);
 					sprintf(tmp_buf, "CHANMSG %s\n", user_input_str);					
 					send(csock, tmp_buf, sizeof(tmp_buf), 0);
+					// we don't print the message on the UI;
+					// protocol says that we will get our own message back, which serves as an ACK by itself
+					// so we will only print our own message if we get it from the server					
 				}
 
 				// reset input window with a horizontal line made of ' ' characters
@@ -437,13 +432,11 @@ int main(int argc, char *argv[]) {
 
 WINDOW *create_newwin(int height, int width, int starty, int startx)
 {	WINDOW *local_win;
-
 	local_win = newwin(height, width, starty, startx);
-	box(local_win, 0 , 0);		/* 0, 0 gives default characters 
-					 * for the vertical and horizontal
-					 * lines			*/
-	wrefresh(local_win);		/* Show that box 		*/
-
+	// 0, 0: default border characters
+	box(local_win, 0, 0);
+	// show the box
+	wrefresh(local_win);
 	return local_win;
 }
 
