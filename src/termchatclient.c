@@ -294,112 +294,121 @@ int main(int argc, char *argv[]) {
 		if ((lenfromserver = recv(csock, buffromserver, MAX_SOCKET_BUF, 0)) > 0) {
 			getyx(input_win, saved_y, saved_x);
 			bzero(tmp_msg, MAX_MSG_LENGTH);
-
 			
-			// get current time into time_now, and then print into tmp_time string
-			time_now = time (0);
-			strftime(tmp_time, 9, "%H:%M:%S", localtime (&time_now));			
-			
-			if (!StrBegins(buffromserver, "CHANMSGFROM ")) {
-				// we process the message from the server
-				// NewLines are never sent by the server, we use %[^\n] to read whitespaces in the string too
-				sscanf(buffromserver, "CHANMSGFROM %s %[^\n]", tmp_nick1, tmp_msg);
-				for (i=0; i<MAX_IGNORES ; i++) {
-					if (!strcmp(ignored_nicks[i],tmp_nick1)) {
-						// only print in debug mode, but then we also have to watch chat_win_currenty++
-						mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "Ignored a channel message.");
-						break;
+			// because of the stream behavior, buffromserver can have more than one messages from the server
+			// these are separated by '\n', as per the protocol specification
+			// we will tokenize buffromserver with separator '\n', and process each message one by one
+			char *next_msg;
+			next_msg = strtok(buffromserver, "\n");
+			while (next_msg != NULL) {
+				// get current time into time_now, and then print into tmp_time string
+				time_now = time (0);
+				strftime(tmp_time, 9, "%H:%M:%S", localtime (&time_now));			
+				
+				if (!StrBegins(next_msg, "CHANMSGFROM ")) {
+					// we process the message from the server
+					// NewLines are never sent by the server, we use %[^\n] to read whitespaces in the string too
+					sscanf(next_msg, "CHANMSGFROM %s %[^\n]", tmp_nick1, tmp_msg);
+					for (i=0; i<MAX_IGNORES ; i++) {
+						if (!strcmp(ignored_nicks[i],tmp_nick1)) {
+							// only print in debug mode, but then we also have to watch chat_win_currenty++
+							mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "Ignored a channel message.");
+							break;
+						}
 					}
+					
+					// if sender wasn't on ignore, print the received message on the screen in the finalized format
+					if (i==MAX_IGNORES)				
+						mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] <%s> %s", tmp_time, tmp_nick1, tmp_msg);
 				}
 				
-				// if sender wasn't on ignore, print the received message on the screen in the finalized format
-				if (i==MAX_IGNORES)				
-					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] <%s> %s", tmp_time, tmp_nick1, tmp_msg);
-			}
-			
-			if (!StrBegins(buffromserver, "PRIVMSGFROM ")) {
-				// we process the message from the server
-				sscanf(buffromserver, "PRIVMSGFROM %s %[^\n]", tmp_nick1, tmp_msg);
-				for (i=0; i<MAX_IGNORES ; i++) {
-					if (!strcmp(ignored_nicks[i],tmp_nick1)) {
-						// only print in debug mode, but then we also have to watch chat_win_currenty++
-						mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "Ignored a private message.");
-						break;
-					}
+				if (!StrBegins(next_msg, "PRIVMSGFROM ")) {
+					// we process the message from the server
+					sscanf(next_msg, "PRIVMSGFROM %s %[^\n]", tmp_nick1, tmp_msg);
+					for (i=0; i<MAX_IGNORES ; i++) {
+						if (!strcmp(ignored_nicks[i],tmp_nick1)) {
+							// only print in debug mode, but then we also have to watch chat_win_currenty++
+							mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "Ignored a private message.");
+							break;
+						}
+					}				
+					// if sender wasn't on ignore, print the received message on the screen in the finalized format
+					if (i==MAX_IGNORES)				
+						mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s has sent you a private message: %s", tmp_time, tmp_nick1, tmp_msg);		
+				}
+				
+				if (!StrBegins(next_msg, "PRIVMSGOK ")) {
+					sscanf(next_msg, "PRIVMSGOK %s %[^\n]", tmp_nick1, tmp_msg);
+					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] you sent a private message to %s: %s", tmp_time, tmp_nick1, tmp_msg);
 				}				
-				// if sender wasn't on ignore, print the received message on the screen in the finalized format
-				if (i==MAX_IGNORES)				
-					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s has sent you a private message: %s", tmp_time, tmp_nick1, tmp_msg);		
-			}
-			
-			if (!StrBegins(buffromserver, "PRIVMSGOK ")) {
-				sscanf(buffromserver, "PRIVMSGOK %s %[^\n]", tmp_nick1, tmp_msg);
-				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] you sent a private message to %s: %s", tmp_time, tmp_nick1, tmp_msg);
-			}				
-			
-			if (!StrBegins(buffromserver, "CHANGENICKOK ")) {
-				sscanf(buffromserver, "CHANGENICKOK %[^\n]", tmp_nick1);
-				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] Your nick is now %s.", tmp_time, tmp_nick1);
-			}
-			
-			if (!StrBegins(buffromserver, "CHANUPDATECHANGENICK ")) {
-				sscanf(buffromserver, "CHANUPDATECHANGENICK %s %[^\n]", tmp_nick1, tmp_nick2);
-				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s is now known as %s", tmp_time, tmp_nick1, tmp_nick2);
-			}					
-			
-			if (!StrBegins(buffromserver, "CHANGECHANNELOK ")) {
-				sscanf(buffromserver, "CHANGECHANNELNELOK %[^\n]", tmp_chan);
-				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] You are now chatting in channel %s.", tmp_time, tmp_chan);
-			}
-			
-			if (!StrBegins(buffromserver, "CHANUPDATEJOIN ")) {
-				sscanf(buffromserver, "CHANUPDATEJOIN %[^\n]", tmp_nick1);
-				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s has joined the channel.", tmp_time, tmp_nick1);
-			}
-			
+				
+				if (!StrBegins(next_msg, "CHANGENICKOK ")) {
+					sscanf(next_msg, "CHANGENICKOK %[^\n]", tmp_nick1);
+					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] Your nick is now %s.", tmp_time, tmp_nick1);
+				}
+				
+				if (!StrBegins(next_msg, "CHANUPDATECHANGENICK ")) {
+					sscanf(next_msg, "CHANUPDATECHANGENICK %s %[^\n]", tmp_nick1, tmp_nick2);
+					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s is now known as %s", tmp_time, tmp_nick1, tmp_nick2);
+				}					
+				
+				if (!StrBegins(next_msg, "CHANGECHANNELOK ")) {
+					sscanf(next_msg, "CHANGECHANNELNELOK %[^\n]", tmp_chan);
+					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] You are now chatting in channel %s.", tmp_time, tmp_chan);
+				}
+				
+				if (!StrBegins(next_msg, "CHANUPDATEJOIN ")) {
+					sscanf(next_msg, "CHANUPDATEJOIN %[^\n]", tmp_nick1);
+					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s has joined the channel.", tmp_time, tmp_nick1);
+				}
+				
 
-			if (!StrBegins(buffromserver, "CHANUPDATELEAVE ")) {
-				sscanf(buffromserver, "CHANUPDATELEAVE %[^\n]", tmp_nick1);
-				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s has left the channel.", tmp_time, tmp_nick1);
+				if (!StrBegins(next_msg, "CHANUPDATELEAVE ")) {
+					sscanf(next_msg, "CHANUPDATELEAVE %[^\n]", tmp_nick1);
+					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s has left the channel.", tmp_time, tmp_nick1);
+				}
+				
+				if (!StrBegins(next_msg, "CHANUPDATEALLNICKS ")) {
+					sscanf(next_msg, "CHANUPDATEALLNICKS %[^\n]", tmp_buf);
+					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] People in this channel: %s", tmp_time, tmp_buf);
+				}						
+				
+				if (!StrBegins(next_msg, "CMDERROR ")) {
+					sscanf(next_msg, "CMDERROR %[^\n]", tmp_msg);			
+					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s", tmp_time, tmp_msg);
+				}
+				
+				if (!StrBegins(next_msg, "CHANGECHANNELERROR ")) {
+					sscanf(next_msg, "CHANGECHANNELERROR %[^\n]", tmp_msg);			
+					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s", tmp_time, tmp_msg);
+				}				
+				
+				if (!StrBegins(next_msg, "CHANGENICKERROR ")) {
+					sscanf(next_msg, "CHANGENICKERROR %[^\n]", tmp_msg);			
+					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s", tmp_time, tmp_msg);
+				}				
+			
+				if (!StrBegins(next_msg, "CHANMSGERROR ")) {
+					sscanf(next_msg, "CHANMSGERROR %[^\n]", tmp_msg);			
+					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s", tmp_time, tmp_msg);
+				}
+				
+				if (!StrBegins(next_msg, "PRIVMSGERROR ")) {
+					sscanf(next_msg, "PRIVMSGERROR %[^\n]", tmp_msg);			
+					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s", tmp_time, tmp_msg);
+				}					
+				
+				if (chat_win_currenty < chat_win_height-2) 
+					chat_win_currenty++;
+				// todo is there an overflow here? box redraws which solves the problem
+				box(chat_win, 0 , 0);
+				wrefresh(chat_win);
+				wmove(input_win, saved_y, saved_x);
+				wrefresh(input_win);
+				
+				// done with this token (message), let's move on to the next one
+				next_msg = strtok(NULL, "\n");
 			}
-			
-			if (!StrBegins(buffromserver, "CHANUPDATEALLNICKS ")) {
-				sscanf(buffromserver, "CHANUPDATEALLNICKS %[^\n]", tmp_buf);
-				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] People in this channel: %s", tmp_time, tmp_buf);
-			}						
-			
-			if (!StrBegins(buffromserver, "CMDERROR ")) {
-				sscanf(buffromserver, "CMDERROR %[^\n]", tmp_msg);			
-				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s", tmp_time, tmp_msg);
-			}
-			
-			if (!StrBegins(buffromserver, "CHANGECHANNELERROR ")) {
-				sscanf(buffromserver, "CHANGECHANNELERROR %[^\n]", tmp_msg);			
-				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s", tmp_time, tmp_msg);
-			}				
-			
-			if (!StrBegins(buffromserver, "CHANGENICKERROR ")) {
-				sscanf(buffromserver, "CHANGENICKERROR %[^\n]", tmp_msg);			
-				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s", tmp_time, tmp_msg);
-			}				
-		
-			if (!StrBegins(buffromserver, "CHANMSGERROR ")) {
-				sscanf(buffromserver, "CHANMSGERROR %[^\n]", tmp_msg);			
-				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s", tmp_time, tmp_msg);
-			}
-			
-			if (!StrBegins(buffromserver, "PRIVMSGERROR ")) {
-				sscanf(buffromserver, "PRIVMSGERROR %[^\n]", tmp_msg);			
-				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s", tmp_time, tmp_msg);
-			}					
-			
-			if (chat_win_currenty < chat_win_height-2) 
-				chat_win_currenty++;
-			// todo is there an overflow here? box redraws which solves the problem
-			box(chat_win, 0 , 0);
-			wrefresh(chat_win);
-			wmove(input_win, saved_y, saved_x);
-			wrefresh(input_win);
 		}
 
 	}

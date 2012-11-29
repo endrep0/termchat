@@ -1,6 +1,4 @@
 /* this project is created as a school assignment by Endre Palinkas */
-/* the server uses network code from the class literature "Linux Programozas" */
-/* written by lecturer Gabor Banyasz & Tihamer Levendovszky, 2003  */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -60,6 +58,8 @@ typedef struct {
 chat_client_t chat_clients[MAX_CHAT_CLIENTS];
 
 int StrBegins(const char *haystack, const char *beginning);
+
+int SendMsgToClient(int clientindex, const char *msg);
 
 void ProcessClientChangeNick(int clientindex, const char *cmd_msg);
 void ProcessClientChangeChan(int clientindex, const char *cmd_msg);
@@ -353,7 +353,7 @@ void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
 		// if client already set a nick before, let's check if this nick is different
 		if (chat_clients[clientindex].status != WAITING_FOR_NICK ) {
 			if (!strcmp(newnick, chat_clients[clientindex].nickname)) {
-				sprintf(reply, "CHANGENICKERROR Your nickname is already %s.", newnick);
+				sprintf(reply, "CHANGENICKERROR Your nickname is already %s.\n", newnick);
 				send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
 				return;
 			}
@@ -362,7 +362,7 @@ void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
 		// check if nick is taken
 		for (i=0; i<MAX_CHAT_CLIENTS; i++) {
 			if (!strcmp(newnick, chat_clients[i].nickname)) {
-				sprintf(reply, "CHANGENICKERROR The %s nickname is already taken.", newnick);
+				sprintf(reply, "CHANGENICKERROR The %s nickname is already taken.\n", newnick);
 				send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
 				return;
 			}
@@ -373,7 +373,7 @@ void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
 		// CHANUPDATECHNICK oldnick newnick
 		for (i=0; i<MAX_CHAT_CLIENTS; i++) {
 			if ( i!=clientindex && chat_clients[i].status == CHATTING && !strcmp(chat_clients[clientindex].channel, chat_clients[i].channel) ) {
-				sprintf(reply, "CHANUPDATECHANGENICK %s %s", chat_clients[clientindex].nickname, newnick);
+				sprintf(reply, "CHANUPDATECHANGENICK %s %s\n", chat_clients[clientindex].nickname, newnick);
 				send(chat_clients[i].socket, reply, strlen(reply), 0);
 			}
 		}
@@ -400,7 +400,7 @@ void ProcessClientChangeChan(int clientindex, const char *cmd_msg) {
 		
 		// can't join channel without a nickname
 		if (chat_clients[clientindex].status == WAITING_FOR_NICK) {
-			sprintf(msg_to_send, "CHANGECHANNELERROR Please set a nickname before joining a channel.");
+			sprintf(msg_to_send, "CHANGECHANNELERROR Please set a nickname before joining a channel.\n");
 			send(chat_clients[clientindex].socket, msg_to_send, strlen(msg_to_send), 0);
 			return;
 			}		
@@ -408,7 +408,7 @@ void ProcessClientChangeChan(int clientindex, const char *cmd_msg) {
 
 		if ( !(StrBegins(buffer, "CHANGECHANNEL ")) ) {
 			char new_channel[MAX_CHANNEL_LENGTH];
-			sscanf(buffer, "CHANGECHANNEL %s", new_channel);
+			sscanf(buffer, "CHANGECHANNEL %s\n", new_channel);
 			
 			// if this isn't the intial channel join, but a real channel change,
 			// send CHANUPDATELEAVE leavernick to other people in the old channel
@@ -417,7 +417,7 @@ void ProcessClientChangeChan(int clientindex, const char *cmd_msg) {
 					if ( i!=clientindex && chat_clients[i].status == CHATTING 
 							&& !strcmp(chat_clients[i].channel, chat_clients[clientindex].channel) ) 
 					{
-						sprintf(reply, "CHANUPDATELEAVE %s", chat_clients[clientindex].nickname);
+						sprintf(reply, "CHANUPDATELEAVE %s\n", chat_clients[clientindex].nickname);
 						send(chat_clients[i].socket, reply, strlen(reply), 0);
 						bzero(reply, MAX_SOCKET_BUF);
 					}
@@ -427,7 +427,7 @@ void ProcessClientChangeChan(int clientindex, const char *cmd_msg) {
 			// send CHANUPDATEJOIN joinernick to other people in the new channel
 			for (i=0; i<MAX_CHAT_CLIENTS; i++) {
 				if ( i!=clientindex && chat_clients[i].status == CHATTING && !strcmp(chat_clients[i].channel, new_channel) ) {
-					sprintf(reply, "CHANUPDATEJOIN %s", chat_clients[clientindex].nickname);
+					sprintf(reply, "CHANUPDATEJOIN %s\n", chat_clients[clientindex].nickname);
 					send(chat_clients[i].socket, reply, strlen(reply), 0);
 					bzero(reply, MAX_SOCKET_BUF);
 				}
@@ -436,7 +436,7 @@ void ProcessClientChangeChan(int clientindex, const char *cmd_msg) {
 			// now we can change the channel of the person
 			strcpy(chat_clients[clientindex].channel, new_channel);
 			chat_clients[clientindex].status = CHATTING;
-			sprintf(reply, "CHANGECHANNELOK %s", new_channel);
+			sprintf(reply, "CHANGECHANNELOK %s\n", new_channel);
 			send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
 			bzero(reply, MAX_SOCKET_BUF);
 			
@@ -456,7 +456,7 @@ void ProcessClientChangeChan(int clientindex, const char *cmd_msg) {
 						send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
 						// reset reply string
 						bzero(reply, MAX_SOCKET_BUF);
-						sprintf(reply, "CHANUPDATEALLNICKS %s", chat_clients[i].nickname);
+						sprintf(reply, "CHANUPDATEALLNICKS %s\n", chat_clients[i].nickname);
 					}
 				}
 			}		
@@ -483,14 +483,14 @@ void ProcessClientChanMsg(int clientindex, const char *chan_msg) {
 		
 		// we don't accept channel messages, if the client hasn't set a nickname yet
 		if (chat_clients[clientindex].status == WAITING_FOR_NICK) {
-			sprintf(msg_to_send, "CHANMSGERROR Please set a nickname, and set the channel first.");
+			sprintf(msg_to_send, "CHANMSGERROR Please set a nickname, and set the channel first.\n");
 			send(chat_clients[clientindex].socket, msg_to_send, strlen(msg_to_send), 0);
 			return;
 			}
 		
 		// client has set a nickname, but they also have to set the channel before sending channel msgs
 		if (chat_clients[clientindex].status == HAS_NICK_WAITING_FOR_CHANNEL) {
-			sprintf(msg_to_send, "CHANMSGERROR Please set the channel first.");
+			sprintf(msg_to_send, "CHANMSGERROR Please set the channel first.\n");
 			send(chat_clients[clientindex].socket, msg_to_send, strlen(msg_to_send), 0);
 			return;
 		}
@@ -501,7 +501,7 @@ void ProcessClientChanMsg(int clientindex, const char *chan_msg) {
 		// we got the message in format: CHANMSG hi there
 		// we send it back to the people in the channel in format: CHANMSGFROM sendernick hi there
 		// let's build the new message to send based on the original
-		sprintf(msg_to_send, "CHANMSGFROM %s %s", chat_clients[clientindex].nickname, chan_msg+8);		
+		sprintf(msg_to_send, "CHANMSGFROM %s %s\n", chat_clients[clientindex].nickname, chan_msg+8);		
 		
 		// go through every client, and send them the message if they're in the particular channel
 		// even the source, so he knows that their message has been delivered
@@ -526,7 +526,7 @@ void ProcessClientPrivMsg(int clientindex, const char *priv_msg) {
 		
 		// we don't accept private messages, if the client hasn't set a nickname yet
 		if (chat_clients[clientindex].status == WAITING_FOR_NICK) {
-			sprintf(msg_to_send, "PRIVMSGERROR Please set a nickname before sending a private message.");
+			sprintf(msg_to_send, "PRIVMSGERROR Please set a nickname before sending a private message.\n");
 			send(chat_clients[clientindex].socket, msg_to_send, strlen(msg_to_send), 0);
 			return;
 		}
@@ -537,17 +537,33 @@ void ProcessClientPrivMsg(int clientindex, const char *priv_msg) {
 		for (i=0; i < MAX_CHAT_CLIENTS; i++) {			
 			if (!strcmp(target_nick, chat_clients[i].nickname)) {
 				// we found the target nick, send him the PRIVMSGFROM sourcenick message
-				sprintf(msg_to_send, "PRIVMSGFROM %s %s", chat_clients[clientindex].nickname, message);
+				sprintf(msg_to_send, "PRIVMSGFROM %s %s\n", chat_clients[clientindex].nickname, message);
 				send(chat_clients[i].socket, msg_to_send, strlen(msg_to_send), 0);
 				// now send the ack to the sender, PRIVMSGOK targetnick message
 				bzero(msg_to_send, MAX_SOCKET_BUF);
-				sprintf(msg_to_send, "PRIVMSGOK %s %s", target_nick, message);
+				sprintf(msg_to_send, "PRIVMSGOK %s %s\n", target_nick, message);
 				send(chat_clients[clientindex].socket, msg_to_send, strlen(msg_to_send), 0);
 				return;
 			}
 		}
 
 		// if we get this far, that means we couldn't find the target nick
-		sprintf(msg_to_send, "PRIVMSGERROR Can't deliver message, no user named '%s' is online.", target_nick);
+		sprintf(msg_to_send, "PRIVMSGERROR Can't deliver message, no user named '%s' is online.\n", target_nick);
 		send(chat_clients[clientindex].socket, msg_to_send, strlen(msg_to_send), 0);		
+}
+
+// for sending channel, control, error messages to clients
+// it pads all messages with the message separator; \n
+// returns 0 if all ok, -1 if there was a problem
+int SendMsgToClient(int clientindex, const char *msg) {
+	// each message needs to characters as the message separators, which needs to fit in MAX_SOCKET_BUF
+	if (strlen(msg) > (MAX_SOCKET_BUF-2))
+		return -1;
+	bzero(msg_to_send, MAX_SOCKET_BUF);
+	strcpy(msg_to_send, msg);
+	strcat(msg_to_send, "\n");
+	
+	if (-1 == send(chat_clients[clientindex].socket, msg_to_send, strlen(msg_to_send), 0))
+		return (-1);
+	else return 0;
 }
