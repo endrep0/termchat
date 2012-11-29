@@ -419,6 +419,7 @@ void ProcessClientChangeChan(int clientindex, const char *cmd_msg) {
 					{
 						sprintf(reply, "CHANUPDATELEAVE %s", chat_clients[clientindex].nickname);
 						send(chat_clients[i].socket, reply, strlen(reply), 0);
+						bzero(reply, MAX_SOCKET_BUF);
 					}
 				}
 			}
@@ -428,6 +429,7 @@ void ProcessClientChangeChan(int clientindex, const char *cmd_msg) {
 				if ( i!=clientindex && chat_clients[i].status == CHATTING && !strcmp(chat_clients[i].channel, new_channel) ) {
 					sprintf(reply, "CHANUPDATEJOIN %s", chat_clients[clientindex].nickname);
 					send(chat_clients[i].socket, reply, strlen(reply), 0);
+					bzero(reply, MAX_SOCKET_BUF);
 				}
 			}
 			
@@ -436,15 +438,16 @@ void ProcessClientChangeChan(int clientindex, const char *cmd_msg) {
 			chat_clients[clientindex].status = CHATTING;
 			sprintf(reply, "CHANGECHANNELOK %s", new_channel);
 			send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
+			bzero(reply, MAX_SOCKET_BUF);
 			
 			// send all nicks to the new joiner
 			// format: CHANUPDATEALLNICKS nick1 nick2 etc
 			sprintf(reply, "CHANUPDATEALLNICKS");			
 			for (i=0; i<MAX_CHAT_CLIENTS; i++) {
-				if ( !strcmp(chat_clients[i].channel, new_channel) ) {
+				if ( chat_clients[i].status == CHATTING && !strcmp(chat_clients[i].channel, new_channel) ) {
 					// we found someone in the channel
 					// if reply is not too long yet, add it
-					if ((sizeof(reply) + 1 + sizeof(chat_clients[i].nickname)) < MAX_SOCKET_BUF ) {
+					if ((strlen(reply) + 1 + strlen(chat_clients[i].nickname)) < MAX_SOCKET_BUF ) {
 						strcat(reply, " ");
 						strcat(reply, chat_clients[i].nickname);
 					}

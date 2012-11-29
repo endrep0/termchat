@@ -363,7 +363,7 @@ int main(int argc, char *argv[]) {
 				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s has left the channel.", tmp_time, tmp_nick1);
 			}
 			
-			if (!StrBegins(buffromserver, "CHANUPDATEALLNICK ")) {
+			if (!StrBegins(buffromserver, "CHANUPDATEALLNICKS ")) {
 				sscanf(buffromserver, "CHANUPDATEALLNICKS %[^\n]", tmp_buf);
 				mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] People in this channel: %s", tmp_time, tmp_buf);
 			}						
