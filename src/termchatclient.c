@@ -21,9 +21,23 @@
 #define MAX_CHANNEL_LENGTH 12
 #define MAX_IGNORES 10
 
+#define TRUE 1
+#define FALSE 0
+
 WINDOW *create_newwin(int height, int width, int starty, int startx);
 void SetNonblocking(int sock);
 int StrBegins(const char *haystack, const char *beginning);
+void AddMsgToChatWindow(const char* msg, int timestamped);
+
+// UI variables, windows paramaters
+WINDOW *nicklist_win;
+WINDOW *input_win;
+WINDOW *chat_win;
+
+int nicklist_win_startx, nicklist_win_starty, nicklist_win_width, nicklist_win_height;
+int input_win_startx, input_win_starty, input_win_width, input_win_height;
+int chat_win_startx, chat_win_starty, chat_win_width, chat_win_height, chat_win_currenty, chat_win_currentx;
+
 
 int main(int argc, char *argv[]) {
 	int i;
@@ -35,22 +49,13 @@ int main(int argc, char *argv[]) {
 	char buffromserver[MAX_SOCKET_BUF];
 	int lenfromserver;
 	char tmp_msg[MAX_MSG_LENGTH];
+	char msg_for_window[MAX_MSG_LENGTH];
 	char tmp_nick1[MAX_NICK_LENGTH];
 	char tmp_nick2[MAX_NICK_LENGTH];
 	char tmp_buf[MAX_SOCKET_BUF];
 	char tmp_chan[MAX_CHANNEL_LENGTH];
 	char ignored_nicks[MAX_IGNORES][MAX_NICK_LENGTH];
-	// for printing time for msgs
-	time_t time_now;
-	char tmp_time[8];
 
-	// UI variables, windows paramaters
-	WINDOW *nicklist_win;
-	WINDOW *input_win;
-	WINDOW *chat_win;
-	int nicklist_win_startx, nicklist_win_starty, nicklist_win_width, nicklist_win_height;
-	int input_win_startx, input_win_starty, input_win_width, input_win_height;
-	int chat_win_startx, chat_win_starty, chat_win_width, chat_win_height, chat_win_currenty, chat_win_currentx;
 	int user_input_char;
 	// protocol limit for the message length
 	char user_input_str[MAX_MSG_LENGTH];
@@ -292,8 +297,6 @@ int main(int argc, char *argv[]) {
 		bzero(buffromserver, MAX_SOCKET_BUF);
 		// we can recv() without blocking, as csock is set to non-blocking
 		if ((lenfromserver = recv(csock, buffromserver, MAX_SOCKET_BUF, 0)) > 0) {
-			getyx(input_win, saved_y, saved_x);
-			bzero(tmp_msg, MAX_MSG_LENGTH);
 			
 			// because of the stream behavior, buffromserver can have more than one messages from the server
 			// these are separated by '\n', as per the protocol specification
@@ -301,25 +304,27 @@ int main(int argc, char *argv[]) {
 			char *next_msg;
 			next_msg = strtok(buffromserver, "\n");
 			while (next_msg != NULL) {
-				// get current time into time_now, and then print into tmp_time string
-				time_now = time (0);
-				strftime(tmp_time, 9, "%H:%M:%S", localtime (&time_now));			
-				
+
 				if (!StrBegins(next_msg, "CHANMSGFROM ")) {
 					// we process the message from the server
 					// NewLines are never sent by the server, we use %[^\n] to read whitespaces in the string too
 					sscanf(next_msg, "CHANMSGFROM %s %[^\n]", tmp_nick1, tmp_msg);
 					for (i=0; i<MAX_IGNORES ; i++) {
 						if (!strcmp(ignored_nicks[i],tmp_nick1)) {
-							// only print in debug mode, but then we also have to watch chat_win_currenty++
-							mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "Ignored a channel message.");
+							#ifdef DEBUG
+							AddMsgToChatWindow("Ignored a channel message.", true);
+							#endif
 							break;
 						}
 					}
 					
 					// if sender wasn't on ignore, print the received message on the screen in the finalized format
-					if (i==MAX_IGNORES)				
-						mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] <%s> %s", tmp_time, tmp_nick1, tmp_msg);
+					// this is where we print accepted channel messages
+					if (i==MAX_IGNORES) {
+						sprintf(msg_for_window, "<%s> %s", tmp_nick1, tmp_msg);
+						AddMsgToChatWindow(msg_for_window, true);
+						break;
+					}
 				}
 				
 				if (!StrBegins(next_msg, "PRIVMSGFROM ")) {
@@ -327,85 +332,87 @@ int main(int argc, char *argv[]) {
 					sscanf(next_msg, "PRIVMSGFROM %s %[^\n]", tmp_nick1, tmp_msg);
 					for (i=0; i<MAX_IGNORES ; i++) {
 						if (!strcmp(ignored_nicks[i],tmp_nick1)) {
-							// only print in debug mode, but then we also have to watch chat_win_currenty++
-							mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "Ignored a private message.");
+							#ifdef DEBUG
+							AddMsgToChatWindow("Ignored a private message.", true);
+							#endif							
 							break;
 						}
 					}				
 					// if sender wasn't on ignore, print the received message on the screen in the finalized format
-					if (i==MAX_IGNORES)				
-						mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s has sent you a private message: %s", tmp_time, tmp_nick1, tmp_msg);		
+					if (i==MAX_IGNORES)	{
+						sprintf(msg_for_window, "%s has sent you a private message: %s", tmp_nick1, tmp_msg);
+						AddMsgToChatWindow(msg_for_window, true);
+					}
 				}
 				
 				if (!StrBegins(next_msg, "PRIVMSGOK ")) {
 					sscanf(next_msg, "PRIVMSGOK %s %[^\n]", tmp_nick1, tmp_msg);
-					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] you sent a private message to %s: %s", tmp_time, tmp_nick1, tmp_msg);
+					sprintf(msg_for_window, "you sent a private message to %s: %s", tmp_nick1, tmp_msg);
+					AddMsgToChatWindow(msg_for_window, true);
 				}				
 				
 				if (!StrBegins(next_msg, "CHANGENICKOK ")) {
 					sscanf(next_msg, "CHANGENICKOK %[^\n]", tmp_nick1);
-					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] Your nick is now %s.", tmp_time, tmp_nick1);
+					sprintf(msg_for_window, "Your nick is now %s.", tmp_nick1);
+					AddMsgToChatWindow(msg_for_window, true);
 				}
 				
 				if (!StrBegins(next_msg, "CHANUPDATECHANGENICK ")) {
 					sscanf(next_msg, "CHANUPDATECHANGENICK %s %[^\n]", tmp_nick1, tmp_nick2);
-					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s is now known as %s", tmp_time, tmp_nick1, tmp_nick2);
+					sprintf(msg_for_window, "%s is now known as %s", tmp_nick1, tmp_nick2);
+					AddMsgToChatWindow(msg_for_window, true);					
 				}					
 				
 				if (!StrBegins(next_msg, "CHANGECHANNELOK ")) {
 					sscanf(next_msg, "CHANGECHANNELNELOK %[^\n]", tmp_chan);
-					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] You are now chatting in channel %s.", tmp_time, tmp_chan);
+					sprintf(msg_for_window, "You are now chatting in channel %s.", tmp_chan);
+					AddMsgToChatWindow(msg_for_window, true);				
 				}
 				
 				if (!StrBegins(next_msg, "CHANUPDATEJOIN ")) {
 					sscanf(next_msg, "CHANUPDATEJOIN %[^\n]", tmp_nick1);
-					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s has joined the channel.", tmp_time, tmp_nick1);
+					sprintf(msg_for_window, "%s has joined the channel.", tmp_nick1);
+					AddMsgToChatWindow(msg_for_window, true);					
 				}
 				
 
 				if (!StrBegins(next_msg, "CHANUPDATELEAVE ")) {
 					sscanf(next_msg, "CHANUPDATELEAVE %[^\n]", tmp_nick1);
-					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s has left the channel.", tmp_time, tmp_nick1);
+					sprintf(msg_for_window, "%s has left the channel.", tmp_nick1);
+					AddMsgToChatWindow(msg_for_window, true);							
 				}
 				
 				if (!StrBegins(next_msg, "CHANUPDATEALLNICKS ")) {
 					sscanf(next_msg, "CHANUPDATEALLNICKS %[^\n]", tmp_buf);
-					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] People in this channel: %s", tmp_time, tmp_buf);
+					sprintf(msg_for_window, "People in this channel: %s", tmp_buf);
+					AddMsgToChatWindow(msg_for_window, true);						
 				}						
 				
 				if (!StrBegins(next_msg, "CMDERROR ")) {
 					sscanf(next_msg, "CMDERROR %[^\n]", tmp_msg);			
-					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s", tmp_time, tmp_msg);
+					AddMsgToChatWindow(tmp_msg, true);						
 				}
 				
 				if (!StrBegins(next_msg, "CHANGECHANNELERROR ")) {
 					sscanf(next_msg, "CHANGECHANNELERROR %[^\n]", tmp_msg);			
-					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s", tmp_time, tmp_msg);
+					AddMsgToChatWindow(tmp_msg, true);
 				}				
 				
 				if (!StrBegins(next_msg, "CHANGENICKERROR ")) {
 					sscanf(next_msg, "CHANGENICKERROR %[^\n]", tmp_msg);			
-					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s", tmp_time, tmp_msg);
+					AddMsgToChatWindow(tmp_msg, true);
 				}				
 			
 				if (!StrBegins(next_msg, "CHANMSGERROR ")) {
 					sscanf(next_msg, "CHANMSGERROR %[^\n]", tmp_msg);			
-					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s", tmp_time, tmp_msg);
+					AddMsgToChatWindow(tmp_msg, true);
 				}
 				
 				if (!StrBegins(next_msg, "PRIVMSGERROR ")) {
 					sscanf(next_msg, "PRIVMSGERROR %[^\n]", tmp_msg);			
-					mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s", tmp_time, tmp_msg);
+					AddMsgToChatWindow(tmp_msg, true);
 				}					
-				
-				if (chat_win_currenty < chat_win_height-2) 
-					chat_win_currenty++;
-				// todo is there an overflow here? box redraws which solves the problem
-				box(chat_win, 0 , 0);
-				wrefresh(chat_win);
-				wmove(input_win, saved_y, saved_x);
-				wrefresh(input_win);
-				
+							
 				// done with this token (message), let's move on to the next one
 				next_msg = strtok(NULL, "\n");
 			}
@@ -462,4 +469,36 @@ int StrBegins(const char *haystack, const char *beginning) {
 	
 	// we got this for, so they match
 	return 0;
+}
+
+// adds a message to chat window
+// if timestamp == TRUE, it will add timestamp, otherwise it won't
+void AddMsgToChatWindow(const char* msg, int timestamped) {
+	// save current input window coordinates
+	int saved_x, saved_y;
+	// for printing time for msgs
+	time_t time_now;
+	char tmp_time[8];	
+	char tmp_msg[MAX_MSG_LENGTH];
+	
+	getyx(input_win, saved_y, saved_x);
+	bzero(tmp_msg, MAX_MSG_LENGTH);	
+	
+	if (timestamped) {
+		// get current time into time_now, and then print into tmp_time string
+		time_now = time (0);
+		strftime(tmp_time, 9, "%H:%M:%S", localtime (&time_now));			
+		mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s", tmp_time, msg);
+	}
+	else 
+		mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "%s", msg);
+	
+	if (chat_win_currenty < chat_win_height-2) 
+		chat_win_currenty++;
+	// TODO
+	// is there an overflow here? box redraws which solves the problem
+	box(chat_win, 0 , 0);
+	wrefresh(chat_win);
+	wmove(input_win, saved_y, saved_x);
+	wrefresh(input_win);			
 }
