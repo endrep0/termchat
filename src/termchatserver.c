@@ -173,40 +173,50 @@ void ProcessPendingRead(int clientindex)
 			
 			#ifdef DEBUG
 			// add to stdout in debug mode
-			printf("A client has sent: %s\n", buffer);
+			printf("A client has sent: %s", buffer);
 			#endif
 			
+			// because of the stream behavior, buffer can have more than one messages from a client
+			// these are separated by '\n', as per the protocol specification
+			// we will tokenize buffer with separator '\n', and process each message one by one
+			char *next_msg;
+			next_msg = strtok(buffer, "\n");
+			while (next_msg != NULL) {
+				// let's see if we got a change nick command from the client
+				if ( !(StrBegins(next_msg, "CHANGENICK ")) ) {
+					// process the client command
+					ProcessClientChangeNick(clientindex, next_msg);
+					// done with this token (message), let's move on to the next one
+					next_msg = strtok(NULL, "\n");						
+					continue;
+				}
+				
+				// let's see if we got a change channel command from the client
+				if ( !(StrBegins(next_msg, "CHANGECHANNEL ")) ) {
+					// process the client command
+					ProcessClientChangeChan(clientindex, next_msg);
+					next_msg = strtok(NULL, "\n");		
+					continue;
+				}
+				
+				if ( !(StrBegins(next_msg, "CHANMSG ")) ) {
+					ProcessClientChanMsg(clientindex, next_msg);
+					next_msg = strtok(NULL, "\n");		
+					continue;
+				}
+				
+				if ( !(StrBegins(next_msg, "PRIVMSG ")) ) {
+					ProcessClientPrivMsg(clientindex, next_msg);
+					next_msg = strtok(NULL, "\n");		
+					continue;
+				}
 			
-			// let's see if we got a change nick command from the client
-			if ( !(StrBegins(buffer, "CHANGENICK ")) ) {
-				// process the client command
-				ProcessClientChangeNick(clientindex, buffer);
-				continue;
-			}
-			
-			// let's see if we got a change channel command from the client
-			if ( !(StrBegins(buffer, "CHANGECHANNEL ")) ) {
-				// process the client command
-				ProcessClientChangeChan(clientindex, buffer);
-				continue;
-			}
-			
-			if ( !(StrBegins(buffer, "CHANMSG ")) ) {
-				ProcessClientChanMsg(clientindex, buffer);
-				continue;
-			}
-			
-			if ( !(StrBegins(buffer, "PRIVMSG ")) ) {
-				ProcessClientPrivMsg(clientindex, buffer);
-				continue;
-			}
-		
-			// if the client command isn't recognized, reply this.
-			sprintf(reply, "CMDERROR Unknown command.");			
-
-			
-					
+				// if the client command isn't recognized, reply this.
+				sprintf(reply, "CMDERROR Unknown command.");
+				next_msg = strtok(NULL, "\n");				
+			}	
 		}
+		
 	} while (bytes_read > 0);
 }
 

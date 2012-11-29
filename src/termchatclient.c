@@ -200,14 +200,14 @@ int main(int argc, char *argv[]) {
 				if ( !StrBegins(user_input_str, "/nick ")) {
 					sscanf(user_input_str, "/nick %s", tmp_nick1);
 					bzero(tmp_buf, MAX_SOCKET_BUF);
-					sprintf(tmp_buf, "CHANGENICK %s", tmp_nick1);
+					sprintf(tmp_buf, "CHANGENICK %s\n", tmp_nick1);
 					send(csock, tmp_buf, sizeof(tmp_buf), 0);
 				}
 				
 				else if ( !StrBegins(user_input_str, "/channel ") ) {
 					sscanf(user_input_str, "/channel %s", tmp_chan);
 					bzero(tmp_buf, MAX_SOCKET_BUF);
-					sprintf(tmp_buf, "CHANGECHANNEL %s", tmp_chan);
+					sprintf(tmp_buf, "CHANGECHANNEL %s\n", tmp_chan);
 					send(csock, tmp_buf, sizeof(tmp_buf), 0);
 				}
 
@@ -215,7 +215,7 @@ int main(int argc, char *argv[]) {
 				else if ( !StrBegins(user_input_str, "/join ") ) {
 					sscanf(user_input_str, "/join %s", tmp_chan);
 					bzero(tmp_buf, MAX_SOCKET_BUF);
-					sprintf(tmp_buf, "CHANGECHANNEL %s", tmp_chan);
+					sprintf(tmp_buf, "CHANGECHANNEL %s\n", tmp_chan);
 					send(csock, tmp_buf, sizeof(tmp_buf), 0);
 				}	
 				
@@ -223,7 +223,7 @@ int main(int argc, char *argv[]) {
 				else if ( !StrBegins(user_input_str, "/msg ") ) {
 					sscanf(user_input_str, "/msg %s %[^\n]", tmp_nick1, tmp_msg);
 					bzero(tmp_buf, MAX_SOCKET_BUF);
-					sprintf(tmp_buf, "PRIVMSG %s %s", tmp_nick1, tmp_msg);
+					sprintf(tmp_buf, "PRIVMSG %s %s\n", tmp_nick1, tmp_msg);
 					send(csock, tmp_buf, sizeof(tmp_buf), 0);
 				}
 
@@ -255,7 +255,7 @@ int main(int argc, char *argv[]) {
 					// send it to the server
 					// let's prepare the message in the needed format
 					bzero(tmp_buf, MAX_SOCKET_BUF);
-					sprintf(tmp_buf, "CHANMSG %s", user_input_str);					
+					sprintf(tmp_buf, "CHANMSG %s\n", user_input_str);					
 					send(csock, tmp_buf, sizeof(tmp_buf), 0);
 				}
 
