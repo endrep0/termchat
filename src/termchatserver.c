@@ -50,9 +50,9 @@ fd_set socks_to_process;
 // chat client data type
 typedef struct {
 	int socket;
-	char nickname[MAX_NICK_LENGTH];
 	// status: DISCONNECTED, WAITING_FOR_NICK, HAS_NICK_WAITING_FOR_CHANNEL, CHATTING
 	int status;
+	char nickname[MAX_NICK_LENGTH];
 	char channel[MAX_CHANNEL_LENGTH];
 } chat_client_t;
 
@@ -117,6 +117,9 @@ void HandleNewConnection(void) {
 				// we found a free slot, let's accept the client connection
 				chat_clients[i].socket=client_socket;
 				chat_clients[i].status=WAITING_FOR_NICK;
+			// reset channel & nickname
+				bzero(chat_clients[i].channel, MAX_CHANNEL_LENGTH);
+				bzero(chat_clients[i].nickname, MAX_NICK_LENGTH);				
 				if (0 == getnameinfo_error) 
 					printf("Chat client connection accepted from: %s:%s. Socket descriptor: %d, Socket index: %d\n", ips, servs, client_socket, i);
 				else 
@@ -157,10 +160,10 @@ void ProcessPendingRead(int clientindex)
 			close(chat_clients[clientindex].socket);
 			chat_clients[clientindex].socket = 0;
 			chat_clients[clientindex].status = DISCONNECTED;
-			// start with no channel, make sure it has no garbage
+			// reset channel & nickname
 			bzero(chat_clients[clientindex].channel, MAX_CHANNEL_LENGTH);
-			//TODO
-			//free(chat_clients[clientindex].nickname);
+			bzero(chat_clients[clientindex].nickname, MAX_NICK_LENGTH);
+
 			break;
 		}
 		
@@ -347,12 +350,14 @@ void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
 		char newnick[MAX_NICK_LENGTH];
 		sscanf(buffer, "CHANGENICK %s", newnick);
 		
-		// is this nick really new?
-		if (!strcmp(newnick, chat_clients[clientindex].nickname)) {
-			sprintf(reply, "CHANGENICKERROR Your nick is already %s", newnick);
-			send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
-			return;
-		}			
+		// if client already set a nick before, let's check if this nick is different
+		if (chat_clients[clientindex].status != WAITING_FOR_NICK ) {
+			if (!strcmp(newnick, chat_clients[clientindex].nickname)) {
+				sprintf(reply, "CHANGENICKERROR Your nickname is already %s.", newnick);
+				send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
+				return;
+			}
+		}
 		
 		// check if nick is taken
 		for (i=0; i<MAX_CHAT_CLIENTS; i++) {
@@ -369,8 +374,7 @@ void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
 		for (i=0; i<MAX_CHAT_CLIENTS; i++) {
 			if ( i!=clientindex && !strcmp(chat_clients[clientindex].channel, chat_clients[i].channel) ) {
 				sprintf(reply, "CHANUPDATECHANGENICK %s %s", chat_clients[clientindex].nickname, newnick);
-				send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
-				return;
+				send(chat_clients[i].socket, reply, strlen(reply), 0);
 			}
 		}
 		
