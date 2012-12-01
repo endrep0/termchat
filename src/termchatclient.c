@@ -149,11 +149,8 @@ int main(int argc, char *argv[]) {
 
 
 	// greeting msg
-	mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "Welcome to the termchat client!");
-	chat_win_currenty++;
-	mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "To list other available commands: type /help. To exit: /exit.");
-	chat_win_currenty++;
-	wrefresh(chat_win);
+	AddMsgToChatWindow("Welcome to the termchat client!", false);
+	AddMsgToChatWindow("To list other available commands: type /help. To exit: /exit.", false);	
 
 	// if the users terminal size is too small, don't allow him to type messages too long	
 	if (COLS-14<MAX_MSG_LENGTH) max_input_length=COLS-3;
@@ -198,9 +195,10 @@ int main(int argc, char *argv[]) {
 					AddMsgToChatWindow(" changing channel: /channel <newchannel>", false);
 					AddMsgToChatWindow(" private message: /msg <nick> <message>", false);
 					AddMsgToChatWindow(" ignoring someone: /ignore nick", false);
+					AddMsgToChatWindow(" to exit: /exit", false);					
 					}
 					
-				if ( !StrBegins(user_input_str, "/nick ")) {
+				else if ( !StrBegins(user_input_str, "/nick ")) {
 					sscanf(user_input_str, "/nick %s", tmp_nick1);
 					bzero(tmp_buf, MAX_SOCKET_BUF);
 					sprintf(tmp_buf, "CHANGENICK %s\n", tmp_nick1);
