@@ -20,6 +20,7 @@
 #define MAX_NICK_LENGTH 12
 #define MAX_CHANNEL_LENGTH 12
 #define MAX_IGNORES 10
+#define CHAT_WINDOW_BUFFER_MAX_LINES 200
 
 #define TRUE 1
 #define FALSE 0
@@ -39,6 +40,9 @@ WINDOW *chat_win;
 int nicklist_win_startx, nicklist_win_starty, nicklist_win_width, nicklist_win_height;
 int input_win_startx, input_win_starty, input_win_width, input_win_height;
 int chat_win_startx, chat_win_starty, chat_win_width, chat_win_height, chat_win_currenty, chat_win_currentx;
+
+char chat_window_buffer[CHAT_WINDOW_BUFFER_MAX_LINES][MAX_MSG_LENGTH];
+int chat_window_buffer_position;
 
 
 int main(int argc, char *argv[]) {
@@ -67,6 +71,8 @@ int main(int argc, char *argv[]) {
 	int max_input_length = MAX_MSG_LENGTH;
 	// saved coordinates
 	int saved_x, saved_y;
+	// initialize chat window buffer
+	chat_window_buffer_position=-1;
 		
 	
 	//reset ignored nicks array
@@ -136,8 +142,6 @@ int main(int argc, char *argv[]) {
 	chat_win_starty = 0;
 	chat_win_startx = 0;
 
-	chat_win_currenty=1;
-	chat_win_currentx=1;
 
 	// we will count input characters, and only save them & write them to display MAX_MSG_LENGTH isn't reached yet
 	noecho();
@@ -470,10 +474,13 @@ int StrBegins(const char *haystack, const char *beginning) {
 void AddMsgToChatWindow(const char* msg, int timestamped) {
 	// for saving the current input window coordinates
 	int saved_x, saved_y;
+
 	// for printing time for msgs
 	time_t time_now;
 	char tmp_time[8];	
 	char tmp_msg[MAX_MSG_LENGTH];
+	char msg_to_print[MAX_MSG_LENGTH];
+	int i;
 	
 	getyx(input_win, saved_y, saved_x);
 	bzero(tmp_msg, MAX_MSG_LENGTH);	
@@ -481,14 +488,61 @@ void AddMsgToChatWindow(const char* msg, int timestamped) {
 	if (timestamped) {
 		// get current time into time_now, and then print into tmp_time string
 		time_now = time (0);
-		strftime(tmp_time, 9, "%H:%M:%S", localtime (&time_now));			
-		mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "[%s] %s", tmp_time, msg);
+		strftime(tmp_time, 9, "%H:%M:%S", localtime (&time_now));
+		sprintf(msg_to_print, "[%s] %s", tmp_time, msg);
+		//mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, msg_to_print);
 	}
-	else 
-		mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "%s", msg);
+	else {
+		sprintf(msg_to_print, "%s", msg);
+		//mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "%s", msg);
+	}
+
+	// increase chat_window_buffer_position
+	chat_window_buffer_position++;
+	if (chat_window_buffer_position < CHAT_WINDOW_BUFFER_MAX_LINES) {
+		// if we aren't past the maximum, just write the line into the current position
+		strcpy(chat_window_buffer[chat_window_buffer_position], msg_to_print);
+	}
+	else {
+		// we are now at the maximum; we need to rotate the chat_window_buffer
+		for (i=0; i < CHAT_WINDOW_BUFFER_MAX_LINES-1; i++) {
+			// line 0 <--- line 1, line 1 <--- line 2, etc
+			strcpy(chat_window_buffer[chat_window_buffer_position], chat_window_buffer[chat_window_buffer_position+1]);
+		}
+		// we have rotated the chat_window_buffer
+		// add the new line to the last position
+		strcpy(chat_window_buffer[CHAT_WINDOW_BUFFER_MAX_LINES-1], msg_to_print);
+		// set the current buffer position the last line
+		chat_window_buffer_position = CHAT_WINDOW_BUFFER_MAX_LINES-1;
+	}
 	
+	// now the chat_window_buffer is updated in the memory
+	// we now need to redraw the chat window contents based on the chat_window_buffer
+	chat_win_currenty=1; 
+	chat_win_currentx=1;	
+	
+	// if current line position is smaller than the window height (minus borders)
+	// we can print all existing lines from line 0 on the screen
+	if (chat_window_buffer_position < (chat_win_height-2)) {
+		for (i=0; i<=chat_window_buffer_position; i++) {
+			mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, chat_window_buffer[i]);
+			chat_win_currenty++;
+		}
+	}
+	
+	// otherwise we need to print the last (chat_win_height-2) lines from the chat_window_buffe
+	else {
+		for (i = (chat_window_buffer_position - (chat_win_height-2)); i<=chat_window_buffer_position; i++) {
+			mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, chat_window_buffer[i]);
+			chat_win_currenty++;			
+		}
+	}
+	
+	
+	/*
 	if (chat_win_currenty < chat_win_height-2) 
 		chat_win_currenty++;
+	*/
 	// TODO
 	// is there an overflow here? box redraws which solves the problem
 	box(chat_win, 0 , 0);
