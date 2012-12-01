@@ -551,16 +551,12 @@ void AddMsgToChatWindow(const char* msg, int timestamped) {
 		}
 	}
 	
-	
-	/*
-	if (chat_win_currenty < chat_win_height-2) 
-		chat_win_currenty++;
-	*/
-	// TODO
-	// is there an overflow here? box redraws which solves the problem
+	// draw the borders of the chat window
 	box(chat_win, 0 , 0);
-	wrefresh(chat_win);
+	// cursor should go back to where it was in the input window
 	wmove(input_win, saved_y, saved_x);
+	// redraw the chat & input windows
+	wrefresh(chat_win);
 	wrefresh(input_win);			
 }
 
