@@ -25,10 +25,14 @@
 #define TRUE 1
 #define FALSE 0
 
+#define SCROLL_DIRECTION_UP -1
+#define SCROLL_DIRECTION_DOWN 1
+
 WINDOW *create_newwin(int height, int width, int starty, int startx);
 void SetNonblocking(int sock);
 int StrBegins(const char *haystack, const char *beginning);
 void AddMsgToChatWindow(const char* msg, int timestamped);
+void ScrollChatWindow(int direction);
 void UpdateNicklist(char* nicklist);
 
 
@@ -197,6 +201,42 @@ int main(int argc, char *argv[]) {
 					wrefresh(input_win);
 				}
 				continue;
+			}
+			
+			// handle up arrow key for scrolling chat window
+			if (user_input_char == KEY_UP ) {
+				ScrollChatWindow(SCROLL_DIRECTION_UP);
+				continue;
+			}
+			
+			// handle down arrow key for scrolling chat window
+			if (user_input_char == KEY_DOWN) {
+				ScrollChatWindow(SCROLL_DIRECTION_DOWN);
+				continue;
+			}
+
+			// if we get an escape key, we need to get 2 more chars to see if it's up or down arrow
+			if (user_input_char == 27) {
+				user_input_char=wgetch(input_win);
+				user_input_char=wgetch(input_win);
+				
+				// handle up arrow key for scrolling chat window
+				if (user_input_char == 65 ) {
+					#ifdef DEBUG
+					//AddMsgToChatWindow("up key pressed", false);
+					#endif
+					ScrollChatWindow(SCROLL_DIRECTION_UP);
+					continue;
+				}
+				
+				// handle down arrow key for scrolling chat window
+				if (user_input_char == 66) {
+					#ifdef DEBUG
+					AddMsgToChatWindow("down key pressed", false);
+					#endif
+					ScrollChatWindow(SCROLL_DIRECTION_DOWN);
+					continue;
+				}
 			}
 
 			// if it is a newline character, the user finished typing a command/msg
@@ -520,7 +560,7 @@ void AddMsgToChatWindow(const char* msg, int timestamped) {
 	else {
 		// we are now at the maximum; we need to rotate the chat_window_buffer
 		for (i=0; i < CHAT_WINDOW_BUFFER_MAX_LINES-1; i++) {
-			// line 0 <--- line 1, line 1 <--- line 2, etc
+			// line 0 <=== line 1, line 1 <=== line 2, etc
 			bzero(chat_window_buffer[chat_window_buffer_last_element_index], MAX_MSG_LENGTH);
 			strcpy(chat_window_buffer[chat_window_buffer_last_element_index], chat_window_buffer[chat_window_buffer_last_element_index+1]);
 		}
@@ -565,6 +605,48 @@ void AddMsgToChatWindow(const char* msg, int timestamped) {
 	// redraw the chat & input windows
 	wrefresh(chat_win);
 	wrefresh(input_win);			
+}
+
+// scroll chat window
+// direction == SCROLL_DIRECTION_UP / SCROLL_DIRECTION_DOWN
+void ScrollChatWindow(int direction) {
+	int i;
+	// for saving the current input window coordinates
+	int saved_x, saved_y;
+
+	// if we are showing messages from the top of the buffer already, scrolling up isn't possible
+	if (direction == SCROLL_DIRECTION_UP && 0 == chat_window_buffer_currently_showing_from_index) {
+		beep();
+		return;
+	}
+	// if we are showing the last messages from the buffer already, scrolling down isn't possible
+	if (direction == SCROLL_DIRECTION_DOWN && 
+		((chat_window_buffer_last_element_index-(chat_win_height-2)) == chat_window_buffer_currently_showing_from_index) ) {
+		beep();
+		return;
+	}
+	
+	// we got this far, let's do the scrolling
+	
+	// saving the current input window coordinates, to remember where the cursor was
+	getyx(input_win, saved_y, saved_x);	
+	chat_window_buffer_currently_showing_from_index += direction;
+	
+	// TODO <= feltetel rossz
+	for (i = chat_window_buffer_currently_showing_from_index; i<=chat_window_buffer_last_element_index; i++) {
+		// reset the line to make sure there won't be any junk left, if we overwrite a longer line
+		mvwhline(chat_win, chat_win_currenty, chat_win_currentx, ' ', MAX_MSG_LENGTH);
+		mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, chat_window_buffer[i]);
+		chat_win_currenty++;			
+	}
+	
+	// draw the borders of the chat window
+	box(chat_win, 0 , 0);
+	// cursor should go back to where it was in the input window
+	wmove(input_win, saved_y, saved_x);
+	// redraw the chat & input windows
+	wrefresh(chat_win);
+	wrefresh(input_win);	
 }
 
 // will draw the nicklist window from the nicklist we got from the server
