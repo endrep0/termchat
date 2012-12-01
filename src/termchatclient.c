@@ -81,7 +81,9 @@ int main(int argc, char *argv[]) {
 	chat_window_buffer_last_element_index=-1;
 	// for scrolling with keyboard
 	
-	// we won't use chat_window_buffer until first line is added to it, and then we will be showing index[0]-index[0]
+	// for saving what position of the chat_window_buffer we show; this is needed for scrolling
+	// we visualize different parts of the buffer when scrolling up/down
+	// they won't be used until first line is added to the chat_window_buffer, and then we will be showing index[0]-index[0]
 	chat_window_currently_showing_first=0;
 	chat_window_currently_showing_last=0;
 		
@@ -610,6 +612,8 @@ void AddMsgToChatWindow(const char* msg, int timestamped) {
 
 // scroll chat window
 // direction == SCROLL_DIRECTION_UP / SCROLL_DIRECTION_DOWN
+// it updates the chat_window_currently_showing_first & chat_window_currently_showing_last indexes,
+// and shows this interval of the chat_window_buffer
 void ScrollChatWindow(int direction) {
 	int i;
 	// for saving the current input window coordinates
@@ -631,15 +635,19 @@ void ScrollChatWindow(int direction) {
 	
 	// saving the current input window coordinates, to remember where the cursor was
 	getyx(input_win, saved_y, saved_x);	
+	
+	// let's shift the interval that we will show from chat_window_buffer
 	chat_window_currently_showing_first += direction;
 	chat_window_currently_showing_last += direction;
 	
 	// we now need to redraw the chat window contents based on the chat_window_buffer
-	// this segment to be exact:
-	// chat_window_buffer[chat_window_currently_showing_first] - chat_window_buffer[chat_window_currently_showing_last]
+	
+	// we will start drawing at the top of the chat window (taking the borders in consideration)
 	chat_win_currenty=1; 
 	chat_win_currentx=1;	
-	
+
+	// this segment of the buffer we be visualized:
+	// chat_window_buffer[chat_window_currently_showing_first] - chat_window_buffer[chat_window_currently_showing_last]
 	for (i = chat_window_currently_showing_first; i<=chat_window_currently_showing_last; i++) {
 		// reset the line to make sure there won't be any junk left, if we overwrite a longer line
 		mvwhline(chat_win, chat_win_currenty, chat_win_currentx, ' ', MAX_MSG_LENGTH);
@@ -648,7 +656,7 @@ void ScrollChatWindow(int direction) {
 	}
 	
 	// draw the borders of the chat window
-	box(chat_win, 0 , 0);
+	box(chat_win, 0, 0);
 	// cursor should go back to where it was in the input window
 	wmove(input_win, saved_y, saved_x);
 	// redraw the chat & input windows
