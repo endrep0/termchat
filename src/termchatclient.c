@@ -28,6 +28,7 @@ WINDOW *create_newwin(int height, int width, int starty, int startx);
 void SetNonblocking(int sock);
 int StrBegins(const char *haystack, const char *beginning);
 void AddMsgToChatWindow(const char* msg, int timestamped);
+void UpdateNicklist(char* nicklist);
 
 // UI variables, windows paramaters
 WINDOW *nicklist_win;
@@ -378,6 +379,7 @@ int main(int argc, char *argv[]) {
 				if (!StrBegins(next_msg, "CHANUPDATEALLNICKS ")) {
 					sscanf(next_msg, "CHANUPDATEALLNICKS %[^\n]", tmp_buf);
 					sprintf(msg_for_window, "People in this channel: %s", tmp_buf);
+					UpdateNicklist(tmp_buf);
 					AddMsgToChatWindow(msg_for_window, true);						
 				}						
 				
@@ -465,7 +467,7 @@ int StrBegins(const char *haystack, const char *beginning) {
 // adds a message to chat window
 // if timestamp == TRUE, it will add timestamp, otherwise it won't
 void AddMsgToChatWindow(const char* msg, int timestamped) {
-	// save current input window coordinates
+	// for saving the current input window coordinates
 	int saved_x, saved_y;
 	// for printing time for msgs
 	time_t time_now;
@@ -492,4 +494,25 @@ void AddMsgToChatWindow(const char* msg, int timestamped) {
 	wrefresh(chat_win);
 	wmove(input_win, saved_y, saved_x);
 	wrefresh(input_win);			
+}
+
+void UpdateNicklist(char* nicklist) {
+	// for saving the current input window coordinates
+	int saved_x, saved_y;
+	// where to put first nick; not on the borders, (1,1) is the correct position
+	int nicklist_win_currenty=1;
+	int nicklist_win_currentx=1;
+
+	getyx(input_win, saved_y, saved_x);	
+	char *next_nick;
+	next_nick = strtok(nicklist, " ");
+	while (next_nick != NULL) {
+		mvwprintw(nicklist_win, nicklist_win_currenty, nicklist_win_currentx, "%s", next_nick);
+		nicklist_win_currenty++;
+		// done with this token (nick), let's move on to the next one
+		next_nick = strtok(NULL, "\n");	
+	}
+	wmove(input_win, saved_y, saved_x);
+	wrefresh(nicklist_win);
+	wrefresh(input_win);
 }
