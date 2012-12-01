@@ -646,7 +646,7 @@ void ScrollChatWindow(int direction) {
 	chat_win_currenty=1; 
 	chat_win_currentx=1;	
 
-	// this segment of the buffer we be visualized:
+	// this segment of the buffer to be visualized:
 	// chat_window_buffer[chat_window_currently_showing_first] - chat_window_buffer[chat_window_currently_showing_last]
 	for (i = chat_window_currently_showing_first; i<=chat_window_currently_showing_last; i++) {
 		// reset the line to make sure there won't be any junk left, if we overwrite a longer line
