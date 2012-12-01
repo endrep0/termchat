@@ -20,7 +20,7 @@
 #define MAX_NICK_LENGTH 12
 #define MAX_CHANNEL_LENGTH 12
 #define MAX_IGNORES 10
-#define CHAT_WINDOW_BUFFER_MAX_LINES 200
+#define CHAT_WINDOW_BUFFER_MAX_LINES 100
 
 #define TRUE 1
 #define FALSE 0
@@ -105,14 +105,14 @@ int main(int argc, char *argv[]) {
 	csock = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
 	if(csock < 0) {
 		freeaddrinfo(res);
-		perror("Error creating while creating the client socket.");
+		perror("Error creating while creating the client socket.\n");
 		return -1;
 	}
 
 	// connect
 	if(connect(csock, res->ai_addr, res->ai_addrlen) < 0) {
 		freeaddrinfo(res);
-		perror("Error occured while connecting to the server.");
+		perror("Error occured while connecting to the server.\n");
 		return -1;
 	}
 	// set the socket to non-blocking, we can read it even if its empty, without blocking
@@ -141,6 +141,16 @@ int main(int argc, char *argv[]) {
 	chat_win_width = COLS-14;
 	chat_win_starty = 0;
 	chat_win_startx = 0;
+	
+	if (CHAT_WINDOW_BUFFER_MAX_LINES < chat_win_height-2) {
+		freeaddrinfo(res);
+		//end curses mode
+		endwin();
+		// close the socket
+		close(csock);			
+		fprintf(stderr, "Error, please set a higher CHAT_WINDOW_BUFFER_MAX_LINES.\n");
+		return -1;
+	}
 
 
 	// we will count input characters, and only save them & write them to display MAX_MSG_LENGTH isn't reached yet
