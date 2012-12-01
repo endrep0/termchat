@@ -492,6 +492,7 @@ void AddMsgToChatWindow(const char* msg, int timestamped) {
 	char msg_to_print[MAX_MSG_LENGTH];
 	int i;
 	
+	// saving the current input window coordinates, to remember where the cursor was
 	getyx(input_win, saved_y, saved_x);
 	bzero(tmp_msg, MAX_MSG_LENGTH);	
 	
@@ -560,14 +561,18 @@ void AddMsgToChatWindow(const char* msg, int timestamped) {
 	wrefresh(input_win);			
 }
 
+// will draw the nicklist window from the nicklist we got from the server
 void UpdateNicklist(char* nicklist) {
-	// for saving the current input window coordinates
-	int saved_x, saved_y;
 	// where to put first nick; not on the borders, (1,1) is the correct position
 	int nicklist_win_currenty=1;
-	int nicklist_win_currentx=1;
-
+	int nicklist_win_currentx=1;	
+	
+	// saving the current input window coordinates, to remember where the cursor was
+	int saved_x, saved_y;
 	getyx(input_win, saved_y, saved_x);	
+	
+	// nicklist should be tokenized, separator character is ' '
+	// we print each nick in a new line of the nicklist window
 	char *next_nick;
 	next_nick = strtok(nicklist, " ");
 	while (next_nick != NULL) {
@@ -576,6 +581,8 @@ void UpdateNicklist(char* nicklist) {
 		// done with this token (nick), let's move on to the next one
 		next_nick = strtok(NULL, "\n");	
 	}
+	
+	
 	wmove(input_win, saved_y, saved_x);
 	wrefresh(nicklist_win);
 	wrefresh(input_win);
