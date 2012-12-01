@@ -490,11 +490,10 @@ void AddMsgToChatWindow(const char* msg, int timestamped) {
 		time_now = time (0);
 		strftime(tmp_time, 9, "%H:%M:%S", localtime (&time_now));
 		sprintf(msg_to_print, "[%s] %s", tmp_time, msg);
-		//mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, msg_to_print);
 	}
 	else {
 		sprintf(msg_to_print, "%s", msg);
-		//mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "%s", msg);
+
 	}
 
 	// increase chat_window_buffer_position
@@ -507,6 +506,7 @@ void AddMsgToChatWindow(const char* msg, int timestamped) {
 		// we are now at the maximum; we need to rotate the chat_window_buffer
 		for (i=0; i < CHAT_WINDOW_BUFFER_MAX_LINES-1; i++) {
 			// line 0 <--- line 1, line 1 <--- line 2, etc
+			bzero(chat_window_buffer[chat_window_buffer_position], MAX_MSG_LENGTH);
 			strcpy(chat_window_buffer[chat_window_buffer_position], chat_window_buffer[chat_window_buffer_position+1]);
 		}
 		// we have rotated the chat_window_buffer
@@ -525,14 +525,17 @@ void AddMsgToChatWindow(const char* msg, int timestamped) {
 	// we can print all existing lines from line 0 on the screen
 	if (chat_window_buffer_position < (chat_win_height-2)) {
 		for (i=0; i<=chat_window_buffer_position; i++) {
-			mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, chat_window_buffer[i]);
+			// print the new line to the screen
+			mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, chat_window_buffer[i]);		
 			chat_win_currenty++;
 		}
 	}
 	
 	// otherwise we need to print the last (chat_win_height-2) lines from the chat_window_buffe
 	else {
-		for (i = (chat_window_buffer_position - (chat_win_height-2)); i<=chat_window_buffer_position; i++) {
+		for (i = (chat_window_buffer_position - (chat_win_height-3)); i<=chat_window_buffer_position; i++) {
+			// reset the line to make sure there won't be any junk left, if we overwrite a longer line
+			mvwhline(chat_win, chat_win_currenty, chat_win_currentx, ' ', MAX_MSG_LENGTH);
 			mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, chat_window_buffer[i]);
 			chat_win_currenty++;			
 		}
