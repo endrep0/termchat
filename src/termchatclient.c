@@ -42,7 +42,8 @@ int input_win_startx, input_win_starty, input_win_width, input_win_height;
 int chat_win_startx, chat_win_starty, chat_win_width, chat_win_height, chat_win_currenty, chat_win_currentx;
 
 char chat_window_buffer[CHAT_WINDOW_BUFFER_MAX_LINES][MAX_MSG_LENGTH];
-int chat_window_buffer_position;
+int chat_window_buffer_last_element_index;
+int chat_window_buffer_currently_showing_from_index;
 
 
 int main(int argc, char *argv[]) {
@@ -72,7 +73,10 @@ int main(int argc, char *argv[]) {
 	// saved coordinates
 	int saved_x, saved_y;
 	// initialize chat window buffer
-	chat_window_buffer_position=-1;
+	chat_window_buffer_last_element_index=-1;
+	// for scrolling with keyboard
+	// we won't use chat_window_buffer until first line is added to it, and then index [0] will be filled
+	chat_window_buffer_currently_showing_from_index=0;
 		
 	
 	//reset ignored nicks array
@@ -507,24 +511,24 @@ void AddMsgToChatWindow(const char* msg, int timestamped) {
 
 	}
 
-	// increase chat_window_buffer_position
-	chat_window_buffer_position++;
-	if (chat_window_buffer_position < CHAT_WINDOW_BUFFER_MAX_LINES) {
+	// increase chat_window_buffer_last_element_index
+	chat_window_buffer_last_element_index++;
+	if (chat_window_buffer_last_element_index < CHAT_WINDOW_BUFFER_MAX_LINES) {
 		// if we aren't past the maximum, just write the line into the current position
-		strcpy(chat_window_buffer[chat_window_buffer_position], msg_to_print);
+		strcpy(chat_window_buffer[chat_window_buffer_last_element_index], msg_to_print);
 	}
 	else {
 		// we are now at the maximum; we need to rotate the chat_window_buffer
 		for (i=0; i < CHAT_WINDOW_BUFFER_MAX_LINES-1; i++) {
 			// line 0 <--- line 1, line 1 <--- line 2, etc
-			bzero(chat_window_buffer[chat_window_buffer_position], MAX_MSG_LENGTH);
-			strcpy(chat_window_buffer[chat_window_buffer_position], chat_window_buffer[chat_window_buffer_position+1]);
+			bzero(chat_window_buffer[chat_window_buffer_last_element_index], MAX_MSG_LENGTH);
+			strcpy(chat_window_buffer[chat_window_buffer_last_element_index], chat_window_buffer[chat_window_buffer_last_element_index+1]);
 		}
 		// we have rotated the chat_window_buffer
 		// add the new line to the last position
 		strcpy(chat_window_buffer[CHAT_WINDOW_BUFFER_MAX_LINES-1], msg_to_print);
-		// set the current buffer position the last line
-		chat_window_buffer_position = CHAT_WINDOW_BUFFER_MAX_LINES-1;
+		// reset the current buffer last element
+		chat_window_buffer_last_element_index = CHAT_WINDOW_BUFFER_MAX_LINES-1;
 	}
 	
 	// now the chat_window_buffer is updated in the memory
@@ -534,17 +538,19 @@ void AddMsgToChatWindow(const char* msg, int timestamped) {
 	
 	// if current line position is smaller than the window height (minus borders)
 	// we can print all existing lines from line 0 on the screen
-	if (chat_window_buffer_position < (chat_win_height-2)) {
-		for (i=0; i<=chat_window_buffer_position; i++) {
+	if (chat_window_buffer_last_element_index < (chat_win_height-2)) {
+		for (i=0; i<=chat_window_buffer_last_element_index; i++) {
 			// print the new line to the screen
 			mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, chat_window_buffer[i]);		
 			chat_win_currenty++;
 		}
 	}
 	
-	// otherwise we need to print the last (chat_win_height-2) lines from the chat_window_buffe
+	// otherwise we need to print the last (chat_win_height-2) lines from the chat_window_buffer
 	else {
-		for (i = (chat_window_buffer_position - (chat_win_height-3)); i<=chat_window_buffer_position; i++) {
+		// let's update the first line which should be shown from the buffer
+		chat_window_buffer_currently_showing_from_index = chat_window_buffer_last_element_index-(chat_win_height-3);
+		for (i = chat_window_buffer_currently_showing_from_index; i<=chat_window_buffer_last_element_index; i++) {
 			// reset the line to make sure there won't be any junk left, if we overwrite a longer line
 			mvwhline(chat_win, chat_win_currenty, chat_win_currentx, ' ', MAX_MSG_LENGTH);
 			mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, chat_window_buffer[i]);
