@@ -47,7 +47,8 @@ int chat_win_startx, chat_win_starty, chat_win_width, chat_win_height, chat_win_
 
 char chat_window_buffer[CHAT_WINDOW_BUFFER_MAX_LINES][MAX_MSG_LENGTH];
 int chat_window_buffer_last_element_index;
-int chat_window_buffer_currently_showing_from_index;
+int chat_window_currently_showing_first;
+int chat_window_currently_showing_last;
 
 
 int main(int argc, char *argv[]) {
@@ -79,8 +80,10 @@ int main(int argc, char *argv[]) {
 	// initialize chat window buffer
 	chat_window_buffer_last_element_index=-1;
 	// for scrolling with keyboard
-	// we won't use chat_window_buffer until first line is added to it, and then index [0] will be filled
-	chat_window_buffer_currently_showing_from_index=0;
+	
+	// we won't use chat_window_buffer until first line is added to it, and then we will be showing index[0]-index[0]
+	chat_window_currently_showing_first=0;
+	chat_window_currently_showing_last=0;
 		
 	
 	//reset ignored nicks array
@@ -222,18 +225,12 @@ int main(int argc, char *argv[]) {
 				
 				// handle up arrow key for scrolling chat window
 				if (user_input_char == 65 ) {
-					#ifdef DEBUG
-					//AddMsgToChatWindow("up key pressed", false);
-					#endif
 					ScrollChatWindow(SCROLL_DIRECTION_UP);
 					continue;
 				}
 				
 				// handle down arrow key for scrolling chat window
 				if (user_input_char == 66) {
-					#ifdef DEBUG
-					AddMsgToChatWindow("down key pressed", false);
-					#endif
 					ScrollChatWindow(SCROLL_DIRECTION_DOWN);
 					continue;
 				}
@@ -578,7 +575,10 @@ void AddMsgToChatWindow(const char* msg, int timestamped) {
 	
 	// if current line position is smaller than the window height (minus borders)
 	// we can print all existing lines from line 0 on the screen
+	// first line (chat_window_currently_showing_last) will be the same as before
+	// chat_window_currently_showing_last is incremented by 1
 	if (chat_window_buffer_last_element_index < (chat_win_height-2)) {
+		chat_window_currently_showing_last = chat_window_buffer_last_element_index;
 		for (i=0; i<=chat_window_buffer_last_element_index; i++) {
 			// print the new line to the screen
 			mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, chat_window_buffer[i]);		
@@ -589,8 +589,9 @@ void AddMsgToChatWindow(const char* msg, int timestamped) {
 	// otherwise we need to print the last (chat_win_height-2) lines from the chat_window_buffer
 	else {
 		// let's update the first line which should be shown from the buffer
-		chat_window_buffer_currently_showing_from_index = chat_window_buffer_last_element_index-(chat_win_height-3);
-		for (i = chat_window_buffer_currently_showing_from_index; i<=chat_window_buffer_last_element_index; i++) {
+		chat_window_currently_showing_first = chat_window_buffer_last_element_index-(chat_win_height-3);
+		chat_window_currently_showing_last = chat_window_buffer_last_element_index;
+		for (i = chat_window_currently_showing_first; i<=chat_window_buffer_last_element_index; i++) {
 			// reset the line to make sure there won't be any junk left, if we overwrite a longer line
 			mvwhline(chat_win, chat_win_currenty, chat_win_currentx, ' ', MAX_MSG_LENGTH);
 			mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, chat_window_buffer[i]);
@@ -615,13 +616,13 @@ void ScrollChatWindow(int direction) {
 	int saved_x, saved_y;
 
 	// if we are showing messages from the top of the buffer already, scrolling up isn't possible
-	if (direction == SCROLL_DIRECTION_UP && 0 == chat_window_buffer_currently_showing_from_index) {
+	if (direction == SCROLL_DIRECTION_UP && 0 == chat_window_currently_showing_first) {
 		beep();
 		return;
 	}
 	// if we are showing the last messages from the buffer already, scrolling down isn't possible
 	if (direction == SCROLL_DIRECTION_DOWN && 
-		((chat_window_buffer_last_element_index-(chat_win_height-2)) == chat_window_buffer_currently_showing_from_index) ) {
+			chat_window_currently_showing_last == chat_window_buffer_last_element_index ) {
 		beep();
 		return;
 	}
@@ -630,10 +631,16 @@ void ScrollChatWindow(int direction) {
 	
 	// saving the current input window coordinates, to remember where the cursor was
 	getyx(input_win, saved_y, saved_x);	
-	chat_window_buffer_currently_showing_from_index += direction;
+	chat_window_currently_showing_first += direction;
+	chat_window_currently_showing_last += direction;
 	
-	// TODO <= feltetel rossz
-	for (i = chat_window_buffer_currently_showing_from_index; i<=chat_window_buffer_last_element_index; i++) {
+	// we now need to redraw the chat window contents based on the chat_window_buffer
+	// this segment to be exact:
+	// chat_window_buffer[chat_window_currently_showing_first] - chat_window_buffer[chat_window_currently_showing_last]
+	chat_win_currenty=1; 
+	chat_win_currentx=1;	
+	
+	for (i = chat_window_currently_showing_first; i<=chat_window_currently_showing_last; i++) {
 		// reset the line to make sure there won't be any junk left, if we overwrite a longer line
 		mvwhline(chat_win, chat_win_currenty, chat_win_currentx, ' ', MAX_MSG_LENGTH);
 		mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, chat_window_buffer[i]);
