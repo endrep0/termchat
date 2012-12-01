@@ -417,11 +417,14 @@ void ProcessClientChangeChan(int clientindex, const char *cmd_msg) {
 
 
 		if ( !(StrBegins(buffer, "CHANGECHANNEL ")) ) {
+			char old_channel[MAX_CHANNEL_LENGTH];
 			char new_channel[MAX_CHANNEL_LENGTH];
+			strcpy(old_channel, chat_clients[clientindex].channel);
 			sscanf(buffer, "CHANGECHANNEL %s\n", new_channel);
 			
 			// if this isn't the intial channel join, but a real channel change,
 			// send CHANUPDATELEAVE leavernick to other people in the old channel
+
 			if (chat_clients[clientindex].status == CHATTING) {
 				for (i=0; i<MAX_CHAT_CLIENTS; i++) {
 					if ( i!=clientindex && chat_clients[i].status == CHATTING 
@@ -457,7 +460,7 @@ void ProcessClientChangeChan(int clientindex, const char *cmd_msg) {
 				if ( chat_clients[i].status == CHATTING && !strcmp(chat_clients[i].channel, new_channel) ) {
 					// we found someone in the channel
 					// if reply is not too long yet, add it
-					if ((strlen(reply) + 1 + strlen(chat_clients[i].nickname)) < MAX_SOCKET_BUF ) {
+					if ((strlen(reply) + 1 + strlen(chat_clients[i].nickname)) < MAX_SOCKET_BUF-1 ) {
 						strcat(reply, " ");
 						strcat(reply, chat_clients[i].nickname);
 					}
@@ -469,12 +472,71 @@ void ProcessClientChangeChan(int clientindex, const char *cmd_msg) {
 						sprintf(reply, "CHANUPDATEALLNICKS %s\n", chat_clients[i].nickname);
 					}
 				}
-			}		
-			// we went through all the users, the reply is ready to be sent
+			}
+			// we went through all the users, the reply is ready to be sent, just needs trailing NewLine char
 			// for small channels, this is the only CHANUPDATEALLNICKS reply
 			//  it will contain at least one nickname (the new joiner's own)
 			// for big channels, this is the last one
+			strcat(reply, "\n");
 			send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
+			
+			// TEMP SOLUTION
+			// gather all nicks in the old channel
+			sprintf(reply, "CHANUPDATEALLNICKS");	
+			for (i=0; i<MAX_CHAT_CLIENTS; i++) {
+				if ( chat_clients[i].status == CHATTING && !strcmp(chat_clients[i].channel, old_channel) )
+				{
+					if ((strlen(reply) + 1 + strlen(chat_clients[i].nickname)) < MAX_SOCKET_BUF-1 ) {
+						strcat(reply, " ");
+						strcat(reply, chat_clients[i].nickname);
+					}
+					// reply too long, so let's send the last reply, and start building a new one
+					else {
+						// TODO
+					}
+				}
+			}
+			strcat(reply, "\n");
+			// we have the reply, now send to everyone in the old channel
+			for (i=0; i<MAX_CHAT_CLIENTS; i++) {
+				if ( chat_clients[i].status == CHATTING && !strcmp(chat_clients[i].channel, old_channel) )
+				{
+					send(chat_clients[i].socket, reply, strlen(reply), 0);
+				}
+			}
+				
+			// TEMP SOLUTION
+			// gather all nicks in the new channel
+			sprintf(reply, "CHANUPDATEALLNICKS");	
+			for (i=0; i<MAX_CHAT_CLIENTS; i++) {
+				if ( chat_clients[i].status == CHATTING && !strcmp(chat_clients[i].channel, new_channel) )
+				{
+					if ((strlen(reply) + 1 + strlen(chat_clients[i].nickname)) < MAX_SOCKET_BUF-1 ) {
+						strcat(reply, " ");
+						strcat(reply, chat_clients[i].nickname);
+					}
+					// reply too long, so let's send the last reply, and start building a new one
+					else {
+						// TODO
+					}
+				}
+			}
+			strcat(reply, "\n");
+			// we have the reply, now send to everyone in the new channel
+			for (i=0; i<MAX_CHAT_CLIENTS; i++) {
+				if ( chat_clients[i].status == CHATTING && !strcmp(chat_clients[i].channel, new_channel) )
+				{
+					send(chat_clients[i].socket, reply, strlen(reply), 0);
+				}
+			}				
+
+			
+	
+			
+			
+			
+			
+			
 			return;
 			
 		}

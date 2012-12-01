@@ -30,6 +30,7 @@ int StrBegins(const char *haystack, const char *beginning);
 void AddMsgToChatWindow(const char* msg, int timestamped);
 void UpdateNicklist(char* nicklist);
 
+
 // UI variables, windows paramaters
 WINDOW *nicklist_win;
 WINDOW *input_win;
