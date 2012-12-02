@@ -18,6 +18,7 @@
 #define MAX_MSG_LENGTH 80
 #define MAX_SOCKET_BUF 1024
 #define MAX_NICK_LENGTH 12
+#define MAX_PASS_LENGTH 12
 #define MAX_CHANNEL_LENGTH 12
 #define MAX_IGNORES 10
 #define CHAT_WINDOW_BUFFER_MAX_LINES 100
@@ -264,6 +265,13 @@ int main(int argc, char *argv[]) {
 					send(csock, tmp_buf, sizeof(tmp_buf), 0);
 				}
 				
+				else if ( !StrBegins(user_input_str, "/pass ")) {
+					sscanf(user_input_str, "/pass %s", tmp_nick1);
+					bzero(tmp_buf, MAX_SOCKET_BUF);
+					sprintf(tmp_buf, "CHANGEPASS %s\n", tmp_nick1);
+					send(csock, tmp_buf, sizeof(tmp_buf), 0);
+				}				
+				
 				else if ( !StrBegins(user_input_str, "/channel ") ) {
 					sscanf(user_input_str, "/channel %s", tmp_chan);
 					bzero(tmp_buf, MAX_SOCKET_BUF);
@@ -407,13 +415,19 @@ int main(int argc, char *argv[]) {
 					sscanf(next_msg, "CHANGENICKOK %[^\n]", tmp_nick1);
 					sprintf(msg_for_window, "Your nick is now %s.", tmp_nick1);
 					AddMsgToChatWindow(msg_for_window, true);
+				}				
+				
+				if (!StrBegins(next_msg, "CHANUPDATECHANGENICK ")) {
+					sscanf(next_msg, "CHANUPDATECHANGENICK %s %[^\n]", tmp_nick1, tmp_nick2);
+					sprintf(msg_for_window, "%s is now known as %s", tmp_nick1, tmp_nick2);
+					AddMsgToChatWindow(msg_for_window, true);					
 				}
 				
 				if (!StrBegins(next_msg, "CHANUPDATECHANGENICK ")) {
 					sscanf(next_msg, "CHANUPDATECHANGENICK %s %[^\n]", tmp_nick1, tmp_nick2);
 					sprintf(msg_for_window, "%s is now known as %s", tmp_nick1, tmp_nick2);
 					AddMsgToChatWindow(msg_for_window, true);					
-				}					
+				}				
 				
 				if (!StrBegins(next_msg, "CHANGECHANNELOK ")) {
 					sscanf(next_msg, "CHANGECHANNELNELOK %[^\n]", tmp_chan);
@@ -439,6 +453,17 @@ int main(int argc, char *argv[]) {
 					sprintf(msg_for_window, "People in this channel: %s", tmp_buf);
 					UpdateNicklist(tmp_buf);
 					AddMsgToChatWindow(msg_for_window, true);						
+				}
+				
+				if (!StrBegins(next_msg, "CHANGEPASSOK ")) {
+					sscanf(next_msg, "CHANGEPASSOK %[^\n]", tmp_nick1);
+					sprintf(msg_for_window, "Password for your nick %s has been updated on the server.", tmp_nick1);
+					AddMsgToChatWindow(msg_for_window, true);
+				}
+
+				if (!StrBegins(next_msg, "CHANGEPASSERROR ")) {
+					sscanf(next_msg, "CHANGEPASSERROR %[^\n]", tmp_msg);
+					AddMsgToChatWindow(tmp_msg, true);
 				}						
 				
 				if (!StrBegins(next_msg, "CMDERROR ")) {
