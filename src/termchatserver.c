@@ -432,7 +432,7 @@ void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
 			if ( strlen(passwords[i].nickname) > 0 && !strcmp(passwords[i].nickname, newnick)) {
 				// yes it's protected. if password wasn't sent, bad luck
 				if (!password_is_sent) {
-					sprintf(reply, "Nick %s is password protected, and you haven't sent a password.\n", newnick);
+					sprintf(reply, "CHANGENICKERROR Nick %s is password protected, and you haven't sent a password.\n", newnick);
 					send(chat_clients[i].socket, reply, strlen(reply), 0);					
 					return;
 				}
@@ -440,7 +440,7 @@ void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
 				else {
 					if (strcmp(passwords[i].password, password)) {
 						// doesn't match
-						sprintf(reply, "Wrong password.\n");
+						sprintf(reply, "CHANGENICKERROR Wrong password.\n");
 						send(chat_clients[i].socket, reply, strlen(reply), 0);					
 						return;							
 					}
@@ -769,5 +769,6 @@ int CountParams(const char *cmd) {
 		next_token = strtok(NULL, " ");	
 	}
 	
-	return count;	
+	// nr of parameters is 1 less than number of tokens
+	return count-1;
 }

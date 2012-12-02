@@ -575,7 +575,8 @@ int CountParams(const char *cmd) {
 		next_token = strtok(NULL, " ");	
 	}
 	
-	return count;	
+	// nr of parameters is 1 less than number of tokens
+	return count-1;
 }
 
 // adds a message to chat window
