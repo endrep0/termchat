@@ -65,7 +65,7 @@ typedef struct {
 
 typedef struct {
 	char nickname[MAX_NICK_LENGTH];
-	char password_sha512[64];
+	char password_sha512[128];
 } passwords_t;
 
 // we will hold MAX_CHAT_CLIENTS
@@ -328,7 +328,7 @@ int main() {
 	// TODO from file
 	for (i=0; i<MAX_SAVED_PASSWORDS; i++) {
 		bzero(passwords[i].nickname, MAX_NICK_LENGTH);
-		bzero(passwords[i].password_sha512, 64);
+		bzero(passwords[i].password_sha512, 128);
 	}	
 	
 	
@@ -391,7 +391,7 @@ int StrBegins(const char *haystack, const char *beginning) {
 //  CHANGENICKOK newnick
 void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
 		char newnick[MAX_NICK_LENGTH];
-		char password_sha512[64];
+		char password_sha512[128];
 		int i;
 		int password_is_sent=FALSE;
 		
@@ -402,6 +402,7 @@ void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
 		if (CountParams(cmd_msg) == 1)
 			sscanf(buffer, "CHANGENICK %s", newnick);
 		else if (CountParams(cmd_msg) == 2) {
+			//TODO bug: sscanf puts '\0' as first char of newnick
 			sscanf(buffer, "CHANGENICK %s %[^\n]", newnick, password_sha512);
 			password_is_sent=TRUE;
 			}
@@ -621,7 +622,7 @@ void ProcessClientChangePass(int clientindex, const char *cmd_msg) {
 		int i;
 		// reset reply string
 		bzero(reply, MAX_SOCKET_BUF);
-		char newpass_sha512[64];
+		char newpass_sha512[128];
 		sscanf(buffer, "CHANGEPASS %s", newpass_sha512);
 		
 		// make sure they already have a nickname
@@ -763,7 +764,7 @@ int SendMsgToClient(int clientindex, const char *msg) {
 int CountParams(const char *cmd) {
 	if (NULL == cmd ) return -1;
 	int count=0;
-	char cmd_copy[MAX_MSG_LENGTH];
+	char cmd_copy[MAX_SOCKET_BUF];
 	strcpy(cmd_copy, cmd);
 	char *next_token;
 	
@@ -775,4 +776,6 @@ int CountParams(const char *cmd) {
 	
 	// nr of parameters is 1 less than number of tokens
 	return count-1;
+	
+
 }

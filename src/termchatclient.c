@@ -38,7 +38,7 @@ int CountParams(const char *cmd);
 void AddMsgToChatWindow(const char* msg, int timestamped);
 void ScrollChatWindow(int direction);
 void UpdateNicklist(char* nicklist);
-char password_sha512[64];
+char password_sha512[128];
 
 
 // UI variables, windows paramaters
@@ -272,9 +272,12 @@ int main(int argc, char *argv[]) {
 					}
 					else if (CountParams(user_input_str) == 2) {
 						sscanf(user_input_str, "/nick %s %s", tmp_nick1, tmp_pass);
+						// calculate the hash of the password
+						SHA512(tmp_pass, password_sha512);						
 						bzero(tmp_buf, MAX_SOCKET_BUF);
-						sprintf(tmp_buf, "CHANGENICK %s %s\n", tmp_nick1, tmp_pass);
+						sprintf(tmp_buf, "CHANGENICK %s %s\n", tmp_nick1, password_sha512);
 						send(csock, tmp_buf, sizeof(tmp_buf), 0);
+						bzero(password_sha512, 128);
 					}
 					else
 						AddMsgToChatWindow("usage: /nick <newnick> or /nick <newnick> <password>", false);
@@ -284,13 +287,13 @@ int main(int argc, char *argv[]) {
 					bzero(tmp_pass, MAX_PASS_LENGTH);
 					sscanf(user_input_str, "/pass %s", tmp_pass);
 					bzero(tmp_buf, MAX_SOCKET_BUF);
-					
-					// TODO: mem leak here:
+					// calculate the hash of the password
 					SHA512(tmp_pass, password_sha512);
 					
 					
 					sprintf(tmp_buf, "CHANGEPASS %s\n", password_sha512);
 					send(csock, tmp_buf, sizeof(tmp_buf), 0);
+					bzero(password_sha512, 128);
 				}				
 				
 				else if ( !StrBegins(user_input_str, "/channel ") ) {
@@ -574,7 +577,7 @@ int StrBegins(const char *haystack, const char *beginning) {
 int CountParams(const char *cmd) {
 	if (NULL == cmd ) return -1;
 	int count=0;
-	char cmd_copy[MAX_MSG_LENGTH];
+	char cmd_copy[MAX_SOCKET_BUF];
 	strcpy(cmd_copy, cmd);
 	char *next_token;
 	
