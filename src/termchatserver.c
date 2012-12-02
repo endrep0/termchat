@@ -23,6 +23,9 @@
 #define HAS_NICK_WAITING_FOR_CHANNEL 2
 #define CHATTING 3
 
+#define TRUE 1
+#define FALSE 0
+
 // for printing client messages to stdout
 #define DEBUG
 
@@ -67,6 +70,7 @@ chat_client_t chat_clients[MAX_CHAT_CLIENTS];
 passwords_t passwords[MAX_SAVED_PASSWORDS];
 
 int StrBegins(const char *haystack, const char *beginning);
+int CountParams(const char *cmd);
 
 int SendMsgToClient(int clientindex, const char *msg);
 
@@ -375,15 +379,33 @@ int StrBegins(const char *haystack, const char *beginning) {
 
 
 // process a change nick command from a client
+// if the nick is password protected, will only change nick if the second parameter is the correct pass
 // cmd_msg example: CHANGENICK Johnny
+// cmd_msg example: CHANGENICK Johnny mysecretpass
 // will tell others in the old channel about the change nick (CHANUPDATECHANGENICK)
 // some reply examples:
 //  CHANGENICKOK newnick
 void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
-		// reset reply string
-		bzero(reply, MAX_SOCKET_BUF);
 		char newnick[MAX_NICK_LENGTH];
-		sscanf(buffer, "CHANGENICK %s", newnick);
+		char password[MAX_PASS_LENGTH];
+		int i;
+		int password_is_sent=FALSE;
+		
+		// reset reply string		
+		bzero(reply, MAX_SOCKET_BUF);
+		
+		// get the new nick from the parameters, and also password if it's there
+		if (CountParams(cmd_msg) == 1)
+			sscanf(buffer, "CHANGENICK %s", newnick);
+		else if (CountParams(cmd_msg) == 2) {
+			sscanf(buffer, "CHANGENICK %s %[^\n]", newnick, password);
+			password_is_sent=TRUE;
+			}
+		else {
+			sprintf(reply, "CHANGENICKERROR Wrong syntax in nick change command.\n");
+			send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
+			return;
+		}
 		
 		// if client already set a nick before, let's check if this nick is different
 		if (chat_clients[clientindex].status != WAITING_FOR_NICK ) {
@@ -404,6 +426,32 @@ void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
 		}
 		
 		// ok, it wasn't taken
+		// let's see if it is a password-protected nick
+		for (i=0; i<MAX_SAVED_PASSWORDS; i++) {
+			// let's see if this nick is in the password db
+			if ( strlen(passwords[i].nickname) > 0 && !strcmp(passwords[i].nickname, newnick)) {
+				// yes it's protected. if password wasn't sent, bad luck
+				if (!password_is_sent) {
+					sprintf(reply, "Nick %s is password protected, and you haven't sent a password.\n", newnick);
+					send(chat_clients[i].socket, reply, strlen(reply), 0);					
+					return;
+				}
+				// they sent a password, now let's compare
+				else {
+					if (strcmp(passwords[i].password, password)) {
+						// doesn't match
+						sprintf(reply, "Wrong password.\n");
+						send(chat_clients[i].socket, reply, strlen(reply), 0);					
+						return;							
+					}
+				}
+				break;
+			}
+		}
+		
+		// if we got this far, nickname wasn't password protected, or the sent password was correct
+		// so we can go ahead with the nick change
+	
 		// send the current nick updates to the other people in the channel
 		// CHANUPDATECHNICK oldnick newnick
 		for (i=0; i<MAX_CHAT_CLIENTS; i++) {
@@ -703,4 +751,23 @@ int SendMsgToClient(int clientindex, const char *msg) {
 	if (-1 == send(chat_clients[clientindex].socket, msg_to_send, strlen(msg_to_send), 0))
 		return (-1);
 	else return 0;
+}
+
+// returns the number of parameters of a command
+// 0 if it's a plain command with no parameters
+// -1 if string is NULL
+int CountParams(const char *cmd) {
+	if (NULL == cmd ) return -1;
+	int count=0;
+	char cmd_copy[MAX_MSG_LENGTH];
+	strcpy(cmd_copy, cmd);
+	char *next_token;
+	
+	next_token = strtok(cmd_copy, " ");
+	while (next_token != NULL) {
+		count++;
+		next_token = strtok(NULL, " ");	
+	}
+	
+	return count;	
 }

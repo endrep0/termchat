@@ -32,6 +32,7 @@
 WINDOW *create_newwin(int height, int width, int starty, int startx);
 void SetNonblocking(int sock);
 int StrBegins(const char *haystack, const char *beginning);
+int CountParams(const char *cmd);
 void AddMsgToChatWindow(const char* msg, int timestamped);
 void ScrollChatWindow(int direction);
 void UpdateNicklist(char* nicklist);
@@ -65,6 +66,7 @@ int main(int argc, char *argv[]) {
 	char msg_for_window[MAX_MSG_LENGTH];
 	char tmp_nick1[MAX_NICK_LENGTH];
 	char tmp_nick2[MAX_NICK_LENGTH];
+	char tmp_pass[MAX_PASS_LENGTH];
 	char tmp_buf[MAX_SOCKET_BUF];
 	char tmp_chan[MAX_CHANNEL_LENGTH];
 	char ignored_nicks[MAX_IGNORES][MAX_NICK_LENGTH];
@@ -259,10 +261,20 @@ int main(int argc, char *argv[]) {
 					}
 					
 				else if ( !StrBegins(user_input_str, "/nick ")) {
-					sscanf(user_input_str, "/nick %s", tmp_nick1);
-					bzero(tmp_buf, MAX_SOCKET_BUF);
-					sprintf(tmp_buf, "CHANGENICK %s\n", tmp_nick1);
-					send(csock, tmp_buf, sizeof(tmp_buf), 0);
+					if (CountParams(user_input_str) == 1) {
+						sscanf(user_input_str, "/nick %s", tmp_nick1);
+						bzero(tmp_buf, MAX_SOCKET_BUF);
+						sprintf(tmp_buf, "CHANGENICK %s\n", tmp_nick1);
+						send(csock, tmp_buf, sizeof(tmp_buf), 0);
+					}
+					else if (CountParams(user_input_str) == 2) {
+						sscanf(user_input_str, "/nick %s %s", tmp_nick1, tmp_pass);
+						bzero(tmp_buf, MAX_SOCKET_BUF);
+						sprintf(tmp_buf, "CHANGENICK %s %s\n", tmp_nick1, tmp_pass);
+						send(csock, tmp_buf, sizeof(tmp_buf), 0);
+					}
+					else
+						AddMsgToChatWindow("usage: /nick <newnick> or /nick <newnick> <password>", false);
 				}
 				
 				else if ( !StrBegins(user_input_str, "/pass ")) {
@@ -545,6 +557,25 @@ int StrBegins(const char *haystack, const char *beginning) {
 	
 	// we got this for, so they match
 	return 0;
+}
+
+// returns the number of parameters of a command
+// 0 if it's a plain command with no parameters
+// -1 if string is NULL
+int CountParams(const char *cmd) {
+	if (NULL == cmd ) return -1;
+	int count=0;
+	char cmd_copy[MAX_MSG_LENGTH];
+	strcpy(cmd_copy, cmd);
+	char *next_token;
+	
+	next_token = strtok(cmd_copy, " ");
+	while (next_token != NULL) {
+		count++;
+		next_token = strtok(NULL, " ");	
+	}
+	
+	return count;	
 }
 
 // adds a message to chat window
