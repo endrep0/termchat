@@ -11,6 +11,8 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <time.h>
+#include <openssl/evp.h>
+#include "termchatcommon.h"
 
 #define DEBUG
 
@@ -36,6 +38,7 @@ int CountParams(const char *cmd);
 void AddMsgToChatWindow(const char* msg, int timestamped);
 void ScrollChatWindow(int direction);
 void UpdateNicklist(char* nicklist);
+unsigned char hash_value[EVP_MAX_MD_SIZE];
 
 
 // UI variables, windows paramaters
@@ -278,9 +281,11 @@ int main(int argc, char *argv[]) {
 				}
 				
 				else if ( !StrBegins(user_input_str, "/pass ")) {
-					sscanf(user_input_str, "/pass %s", tmp_nick1);
+					bzero(tmp_pass, MAX_PASS_LENGTH);
+					sscanf(user_input_str, "/pass %s", tmp_pass);
 					bzero(tmp_buf, MAX_SOCKET_BUF);
-					sprintf(tmp_buf, "CHANGEPASS %s\n", tmp_nick1);
+					SHA512(tmp_pass, hash_value);
+					sprintf(tmp_buf, "CHANGEPASS %s\n", hash_value);
 					send(csock, tmp_buf, sizeof(tmp_buf), 0);
 				}				
 				

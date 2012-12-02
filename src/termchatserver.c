@@ -8,6 +8,9 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <openssl/evp.h>
+#include "termchatcommon.h"
+
 #define PORT "2233"
 #define MAX_CHAT_CLIENTS 15
 #define MAX_SAVED_PASSWORDS 100
@@ -46,6 +49,7 @@ int len;
 int reuse;
 int i;
 const char msg_server_full[]="Sorry, the chat server is currently full. Try again later.\n";
+unsigned char hash_value[EVP_MAX_MD_SIZE];
 
 // sockets to give to select
 fd_set socks_to_process;
