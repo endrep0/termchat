@@ -1,1 +1,1 @@
-void SHA512(const char *source_string, unsigned char *hash_value);
+void SHA512(char *source_string, char *hash_in_hex_string);

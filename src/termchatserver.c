@@ -65,7 +65,7 @@ typedef struct {
 
 typedef struct {
 	char nickname[MAX_NICK_LENGTH];
-	char password[MAX_PASS_LENGTH];
+	char password_sha512[64];
 } passwords_t;
 
 // we will hold MAX_CHAT_CLIENTS
@@ -328,7 +328,7 @@ int main() {
 	// TODO from file
 	for (i=0; i<MAX_SAVED_PASSWORDS; i++) {
 		bzero(passwords[i].nickname, MAX_NICK_LENGTH);
-		bzero(passwords[i].password, MAX_PASS_LENGTH);
+		bzero(passwords[i].password_sha512, 64);
 	}	
 	
 	
@@ -391,7 +391,7 @@ int StrBegins(const char *haystack, const char *beginning) {
 //  CHANGENICKOK newnick
 void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
 		char newnick[MAX_NICK_LENGTH];
-		char password[MAX_PASS_LENGTH];
+		char password_sha512[64];
 		int i;
 		int password_is_sent=FALSE;
 		
@@ -402,7 +402,7 @@ void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
 		if (CountParams(cmd_msg) == 1)
 			sscanf(buffer, "CHANGENICK %s", newnick);
 		else if (CountParams(cmd_msg) == 2) {
-			sscanf(buffer, "CHANGENICK %s %[^\n]", newnick, password);
+			sscanf(buffer, "CHANGENICK %s %[^\n]", newnick, password_sha512);
 			password_is_sent=TRUE;
 			}
 		else {
@@ -442,7 +442,7 @@ void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
 				}
 				// they sent a password, now let's compare
 				else {
-					if (strcmp(passwords[i].password, password)) {
+					if (strcmp(passwords[i].password_sha512, password_sha512)) {
 						// doesn't match
 						sprintf(reply, "CHANGENICKERROR Wrong password.\n");
 						send(chat_clients[i].socket, reply, strlen(reply), 0);					
@@ -621,13 +621,13 @@ void ProcessClientChangePass(int clientindex, const char *cmd_msg) {
 		int i;
 		// reset reply string
 		bzero(reply, MAX_SOCKET_BUF);
-		char newpass[MAX_PASS_LENGTH];
-		sscanf(buffer, "CHANGEPASS %s", newpass);
+		char newpass_sha512[64];
+		sscanf(buffer, "CHANGEPASS %s", newpass_sha512);
 		
 		// make sure they already have a nickname
 		// if it's a registered nickname that they hold, it means they are authorized to use it, because CHANGENICK makes sure of that
 		if (chat_clients[clientindex].status == WAITING_FOR_NICK ) {
-			sprintf(reply, "CHANGEPASSERROR You cannot set a nickname password without a nickname. Please set a nick first.\n");
+			sprintf(reply, "CHANGEPASSERROR Cannot set a nickname password without a nickname.\n");
 			send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
 			return;
 		}
@@ -637,7 +637,7 @@ void ProcessClientChangePass(int clientindex, const char *cmd_msg) {
 		for (i=0; i<MAX_SAVED_PASSWORDS; i++) {
 			if (!strcmp(chat_clients[clientindex].nickname, passwords[i].nickname)) {
 				// we found the person in the passwords database, let's update their pass
-				strcpy(passwords[i].password, newpass);
+				strcpy(passwords[i].password_sha512, newpass_sha512);
 				sprintf(reply, "CHANGEPASSOK %s\n", chat_clients[clientindex].nickname);
 				send(chat_clients[clientindex].socket, reply, strlen(reply), 0);				
 				return;
@@ -649,7 +649,7 @@ void ProcessClientChangePass(int clientindex, const char *cmd_msg) {
 			if (strlen(passwords[i].nickname)==0) {
 				// we found a free spot
 				strcpy(passwords[i].nickname, chat_clients[clientindex].nickname);
-				strcpy(passwords[i].password, newpass);
+				strcpy(passwords[i].password_sha512, newpass_sha512);
 				sprintf(reply, "CHANGEPASSOK %s\n", chat_clients[clientindex].nickname);
 				send(chat_clients[clientindex].socket, reply, strlen(reply), 0);				
 				return;

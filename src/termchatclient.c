@@ -38,7 +38,7 @@ int CountParams(const char *cmd);
 void AddMsgToChatWindow(const char* msg, int timestamped);
 void ScrollChatWindow(int direction);
 void UpdateNicklist(char* nicklist);
-unsigned char hash_value[EVP_MAX_MD_SIZE];
+char password_sha512[64];
 
 
 // UI variables, windows paramaters
@@ -284,8 +284,12 @@ int main(int argc, char *argv[]) {
 					bzero(tmp_pass, MAX_PASS_LENGTH);
 					sscanf(user_input_str, "/pass %s", tmp_pass);
 					bzero(tmp_buf, MAX_SOCKET_BUF);
-					SHA512(tmp_pass, hash_value);
-					sprintf(tmp_buf, "CHANGEPASS %s\n", hash_value);
+					
+					// TODO: mem leak here:
+					SHA512(tmp_pass, password_sha512);
+					
+					
+					sprintf(tmp_buf, "CHANGEPASS %s\n", password_sha512);
 					send(csock, tmp_buf, sizeof(tmp_buf), 0);
 				}				
 				
