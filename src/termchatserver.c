@@ -400,10 +400,9 @@ void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
 		
 		// get the new nick from the parameters, and also password if it's there
 		if (CountParams(cmd_msg) == 1)
-			sscanf(buffer, "CHANGENICK %s", newnick);
+			sscanf(cmd_msg, "CHANGENICK %s", newnick);
 		else if (CountParams(cmd_msg) == 2) {
-			//TODO bug: sscanf puts '\0' as first char of newnick
-			sscanf(buffer, "CHANGENICK %s %[^\n]", newnick, password_sha512);
+			sscanf(cmd_msg, "CHANGENICK %s %[^\n]", newnick, password_sha512);
 			password_is_sent=TRUE;
 			}
 		else {
@@ -496,7 +495,7 @@ void ProcessClientChangeChan(int clientindex, const char *cmd_msg) {
 			char old_channel[MAX_CHANNEL_LENGTH];
 			char new_channel[MAX_CHANNEL_LENGTH];
 			strcpy(old_channel, chat_clients[clientindex].channel);
-			sscanf(buffer, "CHANGECHANNEL %s\n", new_channel);
+			sscanf(cmd_msg, "CHANGECHANNEL %s\n", new_channel);
 			
 			// if this isn't the intial channel join, but a real channel change,
 			// send CHANUPDATELEAVE leavernick to other people in the old channel
@@ -623,7 +622,7 @@ void ProcessClientChangePass(int clientindex, const char *cmd_msg) {
 		// reset reply string
 		bzero(reply, MAX_SOCKET_BUF);
 		char newpass_sha512[128];
-		sscanf(buffer, "CHANGEPASS %s", newpass_sha512);
+		sscanf(cmd_msg, "CHANGEPASS %s", newpass_sha512);
 		
 		// make sure they already have a nickname
 		// if it's a registered nickname that they hold, it means they are authorized to use it, because CHANGENICK makes sure of that
