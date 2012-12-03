@@ -87,6 +87,7 @@ void ProcessClientChangePass(int clientindex, const char *cmd_msg);
 void ProcessClientChanMsg(int clientindex, const char *chan_msg);
 void ProcessClientPrivMsg(int clientindex, const char *priv_msg);
 void QuitGracefully(int signum);
+int LoadPasswordsFromDisk(void);
 
 // this array will hold the connected client sockets
 //int connected_client_socks[MAX_CHAT_CLIENTS];
@@ -333,7 +334,11 @@ int main() {
 	for (i=0; i<MAX_SAVED_PASSWORDS; i++) {
 		bzero(passwords[i].nickname, MAX_NICK_LENGTH);
 		bzero(passwords[i].password_sha512, 129);
-	}	
+	}
+	
+	// load passwords from disk
+	if (LoadPasswordsFromDisk())
+		printf("Failed to open termchatpasswd file.\n");
 	
 	
 	// register new handler for SIGTERM: QuitGracefully()
@@ -840,5 +845,47 @@ void QuitGracefully(int signum) {
 	}
 	close(fd);
 	exit(signum);
+}
+
+int LoadPasswordsFromDisk(void) {
+  int fd;
+  char nickname[MAX_NICK_LENGTH];
+  char password_sha512[129];
+  char tmp_character[1];
+  int characters_read = 1;
+    
+  fd = open("termchatpasswd",  O_RDONLY);
+  if (fd < 0) {
+	return -1;
+  }
+  
+  while ( 1 ) {
+	  // read a nickname
+	  characters_read = read(fd, nickname, MAX_NICK_LENGTH);
+	  if (characters_read < 1)
+		break;
+	  nickname[MAX_NICK_LENGTH-1]='\0';
+	  printf("Read nick: %s\n", nickname);
+	  
+	  // read the space separator
+	  characters_read = read(fd, tmp_character, 1);
+	  if (characters_read < 1)
+		break;	  
+	  
+	  // read the password sha512 hex string
+	  characters_read = read(fd, password_sha512, 128);
+	  if (characters_read < 1)
+		break;	  
+	  password_sha512[128]='\0';
+	  printf("Read hash: %s\n", password_sha512);
+	  
+	  // read the new line character
+	  characters_read = read(fd, tmp_character, 1);
+	  if (characters_read < 1)
+		break;	  
+  }
+  
+  close(fd);
+  return 0;	
 }
 
