@@ -437,7 +437,7 @@ void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
 				// yes it's protected. if password wasn't sent, bad luck
 				if (!password_is_sent) {
 					sprintf(reply, "CHANGENICKERROR Nick %s is password protected, and you haven't sent a password.\n", newnick);
-					send(chat_clients[i].socket, reply, strlen(reply), 0);					
+					send(chat_clients[clientindex].socket, reply, strlen(reply), 0);					
 					return;
 				}
 				// they sent a password, now let's compare
@@ -445,7 +445,7 @@ void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
 					if (strcmp(passwords[i].password_sha512, password_sha512)) {
 						// doesn't match
 						sprintf(reply, "CHANGENICKERROR Wrong password.\n");
-						send(chat_clients[i].socket, reply, strlen(reply), 0);
+						send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
 						return;
 					}	
 				}
