@@ -10,6 +10,7 @@
 #include <netdb.h>
 #include <openssl/evp.h>
 #include "termchatcommon.h"
+#include <signal.h>
 
 #define PORT "2233"
 #define MAX_CHAT_CLIENTS 15
@@ -40,6 +41,8 @@ struct sockaddr_in6 addr;
 socklen_t addrlen;
 char ips[NI_MAXHOST];
 char servs[NI_MAXSERV];
+// for custom behavior on SIGTERM
+struct sigaction new_signal_action;
 
 // TODO different MAX_SOCKET_BUF & MAXMSGLENGTH
 char buffer[MAX_SOCKET_BUF];
@@ -83,6 +86,7 @@ void ProcessClientChangeChan(int clientindex, const char *cmd_msg);
 void ProcessClientChangePass(int clientindex, const char *cmd_msg);
 void ProcessClientChanMsg(int clientindex, const char *chan_msg);
 void ProcessClientPrivMsg(int clientindex, const char *priv_msg);
+void QuitGracefully(int signum);
 
 // this array will hold the connected client sockets
 //int connected_client_socks[MAX_CHAT_CLIENTS];
@@ -331,6 +335,12 @@ int main() {
 		bzero(passwords[i].password_sha512, 129);
 	}	
 	
+	
+	// register new handler for SIGTERM: QuitGracefully()
+	new_signal_action.sa_handler = QuitGracefully;
+	sigemptyset (&new_signal_action.sa_mask);
+	new_signal_action.sa_flags = 0;
+	sigaction(SIGTERM, &new_signal_action, NULL);
 	
 	// allocate memory for the client socket list
 	/*
@@ -809,3 +819,17 @@ int CountParams(const char *cmd) {
 	
 
 }
+
+// if we receive a SIGTERM signal, write our password db to file
+void QuitGracefully(int signum) {
+	int fd;
+	fd = open("termchatpasswd", O_CREAT | O_WRONLY, 0600);
+	if (fd < 0) {
+		printf("Failed to open termchatpasswd file for saving passwords to disk!\n");
+
+	}
+	write(fd, "Hello World!\n", 13);
+	close(fd);
+	exit(signum);
+}
+
