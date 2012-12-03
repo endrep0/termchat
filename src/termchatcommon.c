@@ -1,5 +1,6 @@
 #include <openssl/evp.h>
 #include <string.h>
+#include "termchatcommon.h"
 
 void SHA512(char *source_string, char *hash_in_hex_string) {
 	EVP_MD_CTX *mdctx;

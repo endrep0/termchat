@@ -65,7 +65,7 @@ typedef struct {
 
 typedef struct {
 	char nickname[MAX_NICK_LENGTH];
-	char password_sha512[128];
+	char password_sha512[129];
 } passwords_t;
 
 // we will hold MAX_CHAT_CLIENTS
@@ -328,7 +328,7 @@ int main() {
 	// TODO from file
 	for (i=0; i<MAX_SAVED_PASSWORDS; i++) {
 		bzero(passwords[i].nickname, MAX_NICK_LENGTH);
-		bzero(passwords[i].password_sha512, 128);
+		bzero(passwords[i].password_sha512, 129);
 	}	
 	
 	
@@ -391,7 +391,7 @@ int StrBegins(const char *haystack, const char *beginning) {
 //  CHANGENICKOK newnick
 void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
 		char newnick[MAX_NICK_LENGTH];
-		char password_sha512[128];
+		char password_sha512[129];
 		int i;
 		int password_is_sent=FALSE;
 		
@@ -402,7 +402,7 @@ void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
 		if (CountParams(cmd_msg) == 1)
 			sscanf(cmd_msg, "CHANGENICK %s", newnick);
 		else if (CountParams(cmd_msg) == 2) {
-			sscanf(cmd_msg, "CHANGENICK %s %[^\n]", newnick, password_sha512);
+			sscanf(cmd_msg, "CHANGENICK %s %[^/n]", newnick, password_sha512);
 			password_is_sent=TRUE;
 			}
 		else {
@@ -445,9 +445,9 @@ void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
 					if (strcmp(passwords[i].password_sha512, password_sha512)) {
 						// doesn't match
 						sprintf(reply, "CHANGENICKERROR Wrong password.\n");
-						send(chat_clients[i].socket, reply, strlen(reply), 0);					
-						return;							
-					}
+						send(chat_clients[i].socket, reply, strlen(reply), 0);
+						return;
+					}	
 				}
 				break;
 			}
@@ -621,7 +621,7 @@ void ProcessClientChangePass(int clientindex, const char *cmd_msg) {
 		int i;
 		// reset reply string
 		bzero(reply, MAX_SOCKET_BUF);
-		char newpass_sha512[128];
+		char newpass_sha512[129];
 		sscanf(cmd_msg, "CHANGEPASS %s", newpass_sha512);
 		
 		// make sure they already have a nickname

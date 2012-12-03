@@ -38,7 +38,7 @@ int CountParams(const char *cmd);
 void AddMsgToChatWindow(const char* msg, int timestamped);
 void ScrollChatWindow(int direction);
 void UpdateNicklist(char* nicklist);
-char password_sha512[128];
+char password_sha512[129];
 
 
 // UI variables, windows paramaters
@@ -277,7 +277,7 @@ int main(int argc, char *argv[]) {
 						bzero(tmp_buf, MAX_SOCKET_BUF);
 						sprintf(tmp_buf, "CHANGENICK %s %s\n", tmp_nick1, password_sha512);
 						send(csock, tmp_buf, sizeof(tmp_buf), 0);
-						bzero(password_sha512, 128);
+						bzero(password_sha512, 129);
 					}
 					else
 						AddMsgToChatWindow("usage: /nick <newnick> or /nick <newnick> <password>", false);
@@ -293,7 +293,7 @@ int main(int argc, char *argv[]) {
 					
 					sprintf(tmp_buf, "CHANGEPASS %s\n", password_sha512);
 					send(csock, tmp_buf, sizeof(tmp_buf), 0);
-					bzero(password_sha512, 128);
+					bzero(password_sha512, 129);
 				}				
 				
 				else if ( !StrBegins(user_input_str, "/channel ") ) {
