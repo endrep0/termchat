@@ -863,7 +863,7 @@ int LoadPasswordsFromDisk(void) {
 		return -1;
 	}
 
-	while ( 1 && currently_processing < MAX_SAVED_PASSWORDS) {	
+	while ( currently_processing < MAX_SAVED_PASSWORDS) {	
 		// read a nickname
 		characters_read = read(fd, nickname_from_file, MAX_NICK_LENGTH);
 		if (characters_read < 1)
