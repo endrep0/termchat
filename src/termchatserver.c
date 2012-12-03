@@ -238,7 +238,7 @@ void ProcessPendingRead(int clientindex)
 				}
 			
 				// if the client command isn't recognized, reply this.
-				sprintf(reply, "CMDERROR Unknown command.");
+				sprintf(reply, "CMDERROR Unknown command.\n");
 				next_msg = strtok(NULL, "\n");				
 			}	
 		}
@@ -465,8 +465,16 @@ void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
 			}
 		}
 		
+		// now we can change the nick of the person
+		strcpy(chat_clients[clientindex].nickname, newnick);
+		// only have to change status if client hasn't had a nick before
+		if ( WAITING_FOR_NICK == chat_clients[clientindex].status )
+			chat_clients[clientindex].status = HAS_NICK_WAITING_FOR_CHANNEL;
+		sprintf(reply, "CHANGENICKOK %s\n", newnick);
+		send(chat_clients[clientindex].socket, reply, strlen(reply), 0);			
+		
 		// CHANUPDATEALLNICKS to refresh nick lists
-		// gather all nicks in the new channel
+		// gather all nicks in the channel
 			sprintf(reply, "CHANUPDATEALLNICKS");	
 			for (i=0; i<MAX_CHAT_CLIENTS; i++) {
 				if ( chat_clients[i].status == CHATTING && !strcmp(chat_clients[i].channel, chat_clients[clientindex].channel) )
@@ -489,14 +497,6 @@ void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
 					send(chat_clients[i].socket, reply, strlen(reply), 0);
 				}
 			}				
-		
-		// now we can change the nick of the person
-		strcpy(chat_clients[clientindex].nickname, newnick);
-		// only have to change status if client hasn't had a nick before
-		if ( WAITING_FOR_NICK == chat_clients[clientindex].status )
-			chat_clients[clientindex].status = HAS_NICK_WAITING_FOR_CHANNEL;
-		sprintf(reply, "CHANGENICKOK %s", newnick);
-		send(chat_clients[clientindex].socket, reply, strlen(reply), 0);			
 }
 
 
@@ -632,7 +632,7 @@ void ProcessClientChangeChan(int clientindex, const char *cmd_msg) {
 			return;
 		
 		// if the CMD line didn't fit any of the commands, it has wrong syntax, reply this.
-		sprintf(reply, "CMDERROR Unknown command.");
+		sprintf(reply, "CMDERROR Unknown command.\n");
 }
 
 // process a change pass command from a client
