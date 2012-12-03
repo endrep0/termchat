@@ -445,13 +445,7 @@ int main(int argc, char *argv[]) {
 					sscanf(next_msg, "CHANUPDATECHANGENICK %s %[^\n]", tmp_nick1, tmp_nick2);
 					sprintf(msg_for_window, "%s is now known as %s", tmp_nick1, tmp_nick2);
 					AddMsgToChatWindow(msg_for_window, true);					
-				}
-				
-				if (!StrBegins(next_msg, "CHANUPDATECHANGENICK ")) {
-					sscanf(next_msg, "CHANUPDATECHANGENICK %s %[^\n]", tmp_nick1, tmp_nick2);
-					sprintf(msg_for_window, "%s is now known as %s", tmp_nick1, tmp_nick2);
-					AddMsgToChatWindow(msg_for_window, true);					
-				}				
+				}	
 				
 				if (!StrBegins(next_msg, "CHANGECHANNELOK ")) {
 					sscanf(next_msg, "CHANGECHANNELNELOK %[^\n]", tmp_chan);
