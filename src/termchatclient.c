@@ -468,9 +468,9 @@ int main(int argc, char *argv[]) {
 				
 				if (!StrBegins(next_msg, "CHANUPDATEALLNICKS ")) {
 					sscanf(next_msg, "CHANUPDATEALLNICKS %[^\n]", tmp_buf);
-					sprintf(msg_for_window, "People in this channel: %s", tmp_buf);
+					//sprintf(msg_for_window, "People in this channel: %s", tmp_buf);
 					UpdateNicklist(tmp_buf);
-					AddMsgToChatWindow(msg_for_window, true);						
+					//AddMsgToChatWindow(msg_for_window, true);						
 				}
 				
 				if (!StrBegins(next_msg, "CHANGEPASSOK ")) {

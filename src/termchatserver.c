@@ -465,6 +465,31 @@ void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
 			}
 		}
 		
+		// CHANUPDATEALLNICKS to refresh nick lists
+		// gather all nicks in the new channel
+			sprintf(reply, "CHANUPDATEALLNICKS");	
+			for (i=0; i<MAX_CHAT_CLIENTS; i++) {
+				if ( chat_clients[i].status == CHATTING && !strcmp(chat_clients[i].channel, chat_clients[clientindex].channel) )
+				{
+					if ((strlen(reply) + 1 + strlen(chat_clients[i].nickname)) < MAX_SOCKET_BUF-1 ) {
+						strcat(reply, " ");
+						strcat(reply, chat_clients[i].nickname);
+					}
+					// reply too long, so let's send the last reply, and start building a new one
+					else {
+						// TODO
+					}
+				}
+			}
+			strcat(reply, "\n");
+			// we have the reply, now send to everyone in the new channel
+			for (i=0; i<MAX_CHAT_CLIENTS; i++) {
+				if ( chat_clients[i].status == CHATTING && !strcmp(chat_clients[i].channel, chat_clients[clientindex].channel) )
+				{
+					send(chat_clients[i].socket, reply, strlen(reply), 0);
+				}
+			}				
+		
 		// now we can change the nick of the person
 		strcpy(chat_clients[clientindex].nickname, newnick);
 		// only have to change status if client hasn't had a nick before
