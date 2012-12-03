@@ -847,6 +847,9 @@ void QuitGracefully(int signum) {
 	exit(signum);
 }
 
+
+
+
 int LoadPasswordsFromDisk(void) {
 	int fd;
 	char nickname_from_file[MAX_NICK_LENGTH];
@@ -866,7 +869,9 @@ int LoadPasswordsFromDisk(void) {
 		if (characters_read < 1)
 			break;
 		nickname_from_file[MAX_NICK_LENGTH-1]='\0';
-		printf("Read nick: %s\n", nickname_from_file);
+		#ifdef DEBUG
+		printf("Read nick from termchatpasswd file: %s\n", nickname_from_file);
+		#endif
 
 		// read the space separator
 		characters_read = read(fd, tmp_character, 1);
@@ -878,7 +883,9 @@ int LoadPasswordsFromDisk(void) {
 		if (characters_read < 1)
 			break;	  
 		password_sha512_from_file[128]='\0';
-		printf("Read hash: %s\n", password_sha512_from_file);
+		#ifdef DEBUG		
+		printf("Read hash from termchatpasswd file: %s\n", password_sha512_from_file);
+		#endif		
 
 		// read the new line character
 		characters_read = read(fd, tmp_character, 1);
