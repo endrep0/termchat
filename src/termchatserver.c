@@ -848,44 +848,52 @@ void QuitGracefully(int signum) {
 }
 
 int LoadPasswordsFromDisk(void) {
-  int fd;
-  char nickname[MAX_NICK_LENGTH];
-  char password_sha512[129];
-  char tmp_character[1];
-  int characters_read = 1;
-    
-  fd = open("termchatpasswd",  O_RDONLY);
-  if (fd < 0) {
-	return -1;
-  }
-  
-  while ( 1 ) {
-	  // read a nickname
-	  characters_read = read(fd, nickname, MAX_NICK_LENGTH);
-	  if (characters_read < 1)
-		break;
-	  nickname[MAX_NICK_LENGTH-1]='\0';
-	  printf("Read nick: %s\n", nickname);
-	  
-	  // read the space separator
-	  characters_read = read(fd, tmp_character, 1);
-	  if (characters_read < 1)
-		break;	  
-	  
-	  // read the password sha512 hex string
-	  characters_read = read(fd, password_sha512, 128);
-	  if (characters_read < 1)
-		break;	  
-	  password_sha512[128]='\0';
-	  printf("Read hash: %s\n", password_sha512);
-	  
-	  // read the new line character
-	  characters_read = read(fd, tmp_character, 1);
-	  if (characters_read < 1)
-		break;	  
-  }
-  
-  close(fd);
-  return 0;	
+	int fd;
+	char nickname_from_file[MAX_NICK_LENGTH];
+	char password_sha512_from_file[129];
+	char tmp_character[1];
+	int characters_read = 1;
+	int currently_processing = 0;
+
+	fd = open("termchatpasswd",  O_RDONLY);
+	if (fd < 0) {
+		return -1;
+	}
+
+	while ( 1 && currently_processing < MAX_SAVED_PASSWORDS) {	
+		// read a nickname
+		characters_read = read(fd, nickname_from_file, MAX_NICK_LENGTH);
+		if (characters_read < 1)
+			break;
+		nickname_from_file[MAX_NICK_LENGTH-1]='\0';
+		printf("Read nick: %s\n", nickname_from_file);
+
+		// read the space separator
+		characters_read = read(fd, tmp_character, 1);
+		if (characters_read < 1)
+			break;	  
+
+		// read the password sha512 hex string
+		characters_read = read(fd, password_sha512_from_file, 128);
+		if (characters_read < 1)
+			break;	  
+		password_sha512_from_file[128]='\0';
+		printf("Read hash: %s\n", password_sha512_from_file);
+
+		// read the new line character
+		characters_read = read(fd, tmp_character, 1);
+		if (characters_read < 1)
+			break;
+		
+		// we managed to read a complete line from the termchatpasswd line
+		// add it to memory
+		strcpy(passwords[currently_processing].nickname, nickname_from_file);
+		strcpy(passwords[currently_processing].password_sha512, password_sha512_from_file);
+		
+		currently_processing++;	
+	}
+
+	close(fd);
+	return 0;	
 }
 
