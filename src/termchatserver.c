@@ -823,12 +823,21 @@ int CountParams(const char *cmd) {
 // if we receive a SIGTERM signal, write our password db to file
 void QuitGracefully(int signum) {
 	int fd;
-	fd = open("termchatpasswd", O_CREAT | O_WRONLY, 0600);
+	fd = open("termchatpasswd", O_CREAT | O_TRUNC | O_WRONLY, 0600);
 	if (fd < 0) {
 		printf("Failed to open termchatpasswd file for saving passwords to disk!\n");
 
 	}
-	write(fd, "Hello World!\n", 13);
+	
+	// go through password db
+	for (i=0; i<MAX_SAVED_PASSWORDS; i++) {
+		if (strlen(passwords[i].nickname)!=0) {
+			write(fd, passwords[i].nickname, MAX_NICK_LENGTH);
+			write(fd, " ", 1);
+			write(fd, passwords[i].password_sha512, 128);
+			write(fd, "\n", 1);
+		}
+	}
 	close(fd);
 	exit(signum);
 }
