@@ -729,13 +729,23 @@ void ScrollChatWindow(int direction) {
 
 // will draw the nicklist window from the nicklist we got from the server
 void UpdateNicklist(char* nicklist) {
+	int i;
+	
 	// where to put first nick; not on the borders, (1,1) is the correct position
 	int nicklist_win_currenty=1;
-	int nicklist_win_currentx=1;	
-	
+	int nicklist_win_currentx=1;
+		
 	// saving the current input window coordinates, to remember where the cursor was
 	int saved_x, saved_y;
-	getyx(input_win, saved_y, saved_x);	
+	getyx(input_win, saved_y, saved_x);
+	
+	// reset nick window
+	// TODO bug
+	for (i = 1; i<=nicklist_win_height-2; i++) {
+		// reset the line to make sure there won't be any junk left, if we overwrite a longer line
+		mvwhline(nicklist_win, i, 1, ' ', MAX_NICK_LENGTH);
+		i++;			
+	}	
 	
 	// nicklist should be tokenized, separator character is ' '
 	// we print each nick in a new line of the nicklist window
