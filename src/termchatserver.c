@@ -170,6 +170,7 @@ void HandleNewConnection(void) {
 	char servs[NI_MAXSERV];	
 	const char msg_server_full[]="Sorry, the chat server is currently full. Try again later.\n";
 	
+	addrlen = sizeof(addr);
 	client_socket = accept(server_socket, (struct sockaddr*)&addr, &addrlen);
 	
 	if (client_socket == -1)
@@ -179,7 +180,6 @@ void HandleNewConnection(void) {
 		SetNonblocking(client_socket);
 		// try to get client's ip:port string in a protocol-independent way, using getnameinfo()
 		// we need the size of addr
-		addrlen = sizeof(addr);
 		getnameinfo_error = getnameinfo((struct sockaddr*)&addr, addrlen, ips, sizeof(ips), servs, sizeof(servs), 0);
 		// check if there's room for our socket
 		for (i=0; (i < MAX_CHAT_CLIENTS) && (0 == connection_accepted); i++)
