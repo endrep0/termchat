@@ -120,16 +120,21 @@ int main(int argc, char *argv[]) {
 	keypad(stdscr, TRUE);
 
 	// set size for windows
-	nicklist_win_height = LINES-3;
-	nicklist_win_width = 14;
-	nicklist_win_starty = 0;
-	nicklist_win_startx = COLS-14;
+	// input window at the bottom
 	input_win_height = 3;
 	input_win_width = COLS;
-	input_win_starty = LINES-3;
+	input_win_starty = LINES-input_win_height;
 	input_win_startx = 0;
-	chat_win_height = LINES-3;
-	chat_win_width = COLS-14;
+	
+	// nicklist window, above the input window, right side
+	nicklist_win_height = LINES-input_win_height;
+	nicklist_win_width = MAX_NICK_LENGTH+2;
+	nicklist_win_starty = 0;
+	nicklist_win_startx = COLS-nicklist_win_width;
+
+	// chat window, above the input window, left side
+	chat_win_height = LINES-input_win_height;
+	chat_win_width = COLS-nicklist_win_width;
 	chat_win_starty = 0;
 	chat_win_startx = 0;
 	
