@@ -440,7 +440,6 @@ int main(int argc, char *argv[]) {
 				
 				if (!StrBegins(next_msg, "CHANUPDATEALLNICKS ")) {
 					sscanf(next_msg, "CHANUPDATEALLNICKS %[^\n]", tmp_buf);
-					AddMsgToChatWindow(tmp_buf, true);
 					UpdateNicklist(tmp_buf);
 			
 				}
@@ -666,11 +665,9 @@ void UpdateNicklist(char* nicklist) {
 	getyx(input_win, saved_y, saved_x);
 	
 	// reset nick window
-	// TODO bug
 	for (i = 1; i<=nicklist_win_height-2; i++) {
 		// reset the line to make sure there won't be any junk left, if we overwrite a longer line
 		mvwhline(nicklist_win, i, 1, ' ', MAX_NICK_LENGTH);
-		i++;			
 	}	
 	
 	// nicklist should be tokenized, separator character is ' '
