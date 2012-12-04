@@ -32,19 +32,16 @@ char reply[MAX_SOCKET_BUF];
 int len;
 int reuse;
 int i;
-const char msg_server_full[]="Sorry, the chat server is currently full. Try again later.\n";
 unsigned char hash_value[EVP_MAX_MD_SIZE];
 
 // sockets to give to select
 fd_set socks_to_process;
-
 // we will hold MAX_CHAT_CLIENTS
 chat_client_t chat_clients[MAX_CHAT_CLIENTS];
-// passwords
+// saved nick passwords (hashes)
 passwords_t passwords[MAX_SAVED_PASSWORDS];
 
-// this array will hold the connected client sockets
-//int connected_client_socks[MAX_CHAT_CLIENTS];
+
 
 // creates the set of sockets that select needs to iterate through
 // to be called from the main loop
@@ -68,6 +65,7 @@ void HandleNewConnection(void) {
 	int client_socket;
 	int getnameinfo_error;
 	short connection_accepted = 0;
+	const char msg_server_full[]="Sorry, the chat server is currently full. Try again later.\n";
 	
 	client_socket = accept(server_socket, (struct sockaddr*)&addr, &addrlen);
 	
