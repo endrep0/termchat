@@ -5,34 +5,14 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
+#include <errno.h>
+#include <signal.h>
+#include <netdb.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <netdb.h>
-#include <errno.h>
 #include <openssl/evp.h>
 #include "termchatcommon.h"
-#include <signal.h>
-
-#define PORT "2233"
-#define MAX_CHAT_CLIENTS 15
-#define MAX_SAVED_PASSWORDS 100
-
-#define MAX_SOCKET_BUF 1024
-#define MAX_MSG_LENGTH 80
-#define MAX_NICK_LENGTH 12
-#define MAX_PASS_LENGTH 12
-#define MAX_CHANNEL_LENGTH 12
-
-#define DISCONNECTED 0
-#define WAITING_FOR_NICK 1
-#define HAS_NICK_WAITING_FOR_CHANNEL 2
-#define CHATTING 3
-
-#define TRUE 1
-#define FALSE 0
-
-// for printing client messages to stdout
-#define DEBUG
+#include "termchatserver.h"
 
 int server_socket, csock;
 struct addrinfo hints;
@@ -58,48 +38,13 @@ unsigned char hash_value[EVP_MAX_MD_SIZE];
 // sockets to give to select
 fd_set socks_to_process;
 
-// chat client data type
-typedef struct {
-	int socket;
-	// status: DISCONNECTED, WAITING_FOR_NICK, HAS_NICK_WAITING_FOR_CHANNEL, CHATTING
-	int status;
-	char nickname[MAX_NICK_LENGTH];
-	char channel[MAX_CHANNEL_LENGTH];
-} chat_client_t;
-
-typedef struct {
-	char nickname[MAX_NICK_LENGTH];
-	char password_sha512[129];
-} passwords_t;
-
 // we will hold MAX_CHAT_CLIENTS
 chat_client_t chat_clients[MAX_CHAT_CLIENTS];
 // passwords
 passwords_t passwords[MAX_SAVED_PASSWORDS];
 
-int StrBegins(const char *haystack, const char *beginning);
-int CountParams(const char *cmd);
-
-int SendMsgToClient(int clientindex, const char *msg);
-
-void ProcessClientChangeNick(int clientindex, const char *cmd_msg);
-void ProcessClientChangeChan(int clientindex, const char *cmd_msg);
-void ProcessClientChangePass(int clientindex, const char *cmd_msg);
-void ProcessClientChanMsg(int clientindex, const char *chan_msg);
-void ProcessClientPrivMsg(int clientindex, const char *priv_msg);
-void QuitGracefully(int signum);
-int LoadPasswordsFromDisk(void);
-int SavePasswordsToDisk(void);
-
 // this array will hold the connected client sockets
 //int connected_client_socks[MAX_CHAT_CLIENTS];
-
-// sets a socket to non-blocking
-void SetNonblocking(int sock) {
-	int opts = fcntl(sock, F_GETFL);
-	opts = (opts | O_NONBLOCK);
-	fcntl(sock, F_SETFL, opts);
-}
 
 // creates the set of sockets that select needs to iterate through
 // to be called from the main loop
@@ -379,24 +324,6 @@ int main() {
 	// close(server_socket);
 	return 0;
 }
-
-// returns 0 if haystack begins with beginning (case sensitive), -1 if not
-int StrBegins(const char *haystack, const char *beginning) {
-	int i;
-	if (NULL == haystack || NULL == beginning) 
-		return -1;
-	if (sizeof(beginning) > sizeof(haystack))
-		return -1;
-	
-	// let's compare until the end of beginning
-	for (i=0; beginning[i]!='\0'; i++) {
-		if (haystack[i]!=beginning[i]) return -1;
-	}
-	
-	// we got this for, so they match
-	return 0;
-}
-
 
 // process a change nick command from a client
 // if the nick is password protected, will only change nick if the second parameter is the correct pass
@@ -807,29 +734,8 @@ int SendMsgToClient(int clientindex, const char *msg) {
 	else return 0;
 }
 
-// returns the number of parameters of a command
-// 0 if it's a plain command with no parameters
-// -1 if string is NULL
-int CountParams(const char *cmd) {
-	if (NULL == cmd ) return -1;
-	int count=0;
-	char cmd_copy[MAX_SOCKET_BUF];
-	strcpy(cmd_copy, cmd);
-	char *next_token;
-	
-	next_token = strtok(cmd_copy, " ");
-	while (next_token != NULL) {
-		count++;
-		next_token = strtok(NULL, " ");	
-	}
-	
-	// nr of parameters is 1 less than number of tokens
-	return count-1;
-	
 
-}
-
-// if we receive a SIGTERM signal, send a quit message
+// if we receive a SIGTERM signal, send a cozy quit message
 void QuitGracefully(int signum) {
 	printf("Termchatserver was terminated. Goodbye!\n");
 	exit(signum);

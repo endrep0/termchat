@@ -1,45 +1,19 @@
 /* this project is created as a school assignment by Endre Palinkas */
-/* ncurses5 has to be installed to be able to compile this */
+/* ncurses5 & openssl (libssl-dev) has to be installed to be able to compile this */
 
 #include <ncurses.h>
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <sys/socket.h>
+#include <time.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <netdb.h>
-#include <time.h>
+#include <sys/socket.h>
 #include <openssl/evp.h>
 #include "termchatcommon.h"
-
-#define DEBUG
-
-#define PORT "2233"
-#define MAX_MSG_LENGTH 80
-#define MAX_SOCKET_BUF 1024
-#define MAX_NICK_LENGTH 12
-#define MAX_PASS_LENGTH 12
-#define MAX_CHANNEL_LENGTH 12
-#define MAX_IGNORES 10
-#define CHAT_WINDOW_BUFFER_MAX_LINES 100
-
-#define TRUE 1
-#define FALSE 0
-
-#define SCROLL_DIRECTION_UP -1
-#define SCROLL_DIRECTION_DOWN 1
-
-WINDOW *create_newwin(int height, int width, int starty, int startx);
-void SetNonblocking(int sock);
-int StrBegins(const char *haystack, const char *beginning);
-int CountParams(const char *cmd);
-void AddMsgToChatWindow(const char* msg, int timestamped);
-void ScrollChatWindow(int direction);
-void UpdateNicklist(char* nicklist);
-char password_sha512[129];
-
+#include "termchatclient.h"
 
 // UI variables, windows paramaters
 WINDOW *nicklist_win;
@@ -54,7 +28,6 @@ char chat_window_buffer[CHAT_WINDOW_BUFFER_MAX_LINES][MAX_MSG_LENGTH];
 int chat_window_buffer_last_element_index;
 int chat_window_currently_showing_first;
 int chat_window_currently_showing_last;
-
 
 int main(int argc, char *argv[]) {
 	int i;
@@ -541,50 +514,6 @@ WINDOW *create_newwin(int height, int width, int starty, int startx)
 	return local_win;
 }
 
-// sets a socket to non-blocking
-void SetNonblocking(int sock) {
-	int opts = fcntl(sock, F_GETFL);
-	opts = (opts | O_NONBLOCK);
-	fcntl(sock, F_SETFL, opts);
-}
-
-// returns 0 if haystack begins with beginning (case sensitive), -1 if not
-int StrBegins(const char *haystack, const char *beginning) {
-	int i;
-	if (NULL == haystack || NULL == beginning) 
-		return -1;
-	if (sizeof(beginning) > sizeof(haystack))
-		return -1;
-	
-	// let's compare until the end of beginning
-	for (i=0; beginning[i]!='\0'; i++) {
-		if (haystack[i]!=beginning[i]) return -1;
-	}
-	
-	// we got this for, so they match
-	return 0;
-}
-
-// returns the number of parameters of a command
-// 0 if it's a plain command with no parameters
-// -1 if string is NULL
-int CountParams(const char *cmd) {
-	if (NULL == cmd ) return -1;
-	int count=0;
-	char cmd_copy[MAX_SOCKET_BUF];
-	strcpy(cmd_copy, cmd);
-	char *next_token;
-	
-	next_token = strtok(cmd_copy, " ");
-	while (next_token != NULL) {
-		count++;
-		next_token = strtok(NULL, " ");	
-	}
-	
-	// nr of parameters is 1 less than number of tokens
-	return count-1;
-}
-
 // adds a message to chat window
 // if timestamp == TRUE, it will add timestamp, otherwise it won't
 void AddMsgToChatWindow(const char* msg, int timestamped) {
@@ -762,4 +691,29 @@ void UpdateNicklist(char* nicklist) {
 	wmove(input_win, saved_y, saved_x);
 	wrefresh(nicklist_win);
 	wrefresh(input_win);
+}
+
+
+// calculates the hash of source_string
+// writes the hex representation into hash_in_hex_string
+void SHA512(char *source_string, char *hash_in_hex_string) {
+	EVP_MD_CTX *mdctx;
+	OpenSSL_add_all_digests();
+	const EVP_MD *md = EVP_get_digestbyname("sha512");
+	unsigned int md_len;
+	unsigned char md_value[EVP_MAX_MD_SIZE];
+	int i;
+	char buf[32];
+
+	mdctx = EVP_MD_CTX_create();
+	EVP_DigestInit_ex(mdctx, md, NULL);
+	EVP_DigestUpdate(mdctx, source_string, strlen(source_string));
+	EVP_DigestFinal_ex(mdctx, md_value, &md_len);
+	EVP_MD_CTX_destroy(mdctx);
+	
+	// represent the hash as a hex string
+	for(i = 0; i < md_len; i++) {
+		sprintf(buf, "%02x", md_value[i]);
+		strcat(hash_in_hex_string, buf);
+	}
 }

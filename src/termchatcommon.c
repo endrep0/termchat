@@ -1,25 +1,47 @@
-#include <openssl/evp.h>
 #include <string.h>
+#include <fcntl.h>
 #include "termchatcommon.h"
 
-void SHA512(char *source_string, char *hash_in_hex_string) {
-	EVP_MD_CTX *mdctx;
-	OpenSSL_add_all_digests();
-	const EVP_MD *md = EVP_get_digestbyname("sha512");
-	unsigned int md_len;
-	unsigned char md_value[EVP_MAX_MD_SIZE];
-	int i;
-	char buf[32];
+// sets a socket to non-blocking
+void SetNonblocking(int sock) {
+	int opts = fcntl(sock, F_GETFL);
+	opts = (opts | O_NONBLOCK);
+	fcntl(sock, F_SETFL, opts);
+}
 
-	mdctx = EVP_MD_CTX_create();
-	EVP_DigestInit_ex(mdctx, md, NULL);
-	EVP_DigestUpdate(mdctx, source_string, strlen(source_string));
-	EVP_DigestFinal_ex(mdctx, md_value, &md_len);
-	EVP_MD_CTX_destroy(mdctx);
+// returns 0 if haystack begins with beginning (case sensitive), -1 if not
+int StrBegins(const char *haystack, const char *beginning) {
+	int i;
+	if (NULL == haystack || NULL == beginning) 
+		return -1;
+	if (sizeof(beginning) > sizeof(haystack))
+		return -1;
 	
-	// represent the hash as a hex string
-	for(i = 0; i < md_len; i++) {
-		sprintf(buf, "%02x", md_value[i]);
-		strcat(hash_in_hex_string, buf);
+	// let's compare until the end of beginning
+	for (i=0; beginning[i]!='\0'; i++) {
+		if (haystack[i]!=beginning[i]) return -1;
 	}
+	
+	// we got this for, so they match
+	return 0;
+}
+
+// returns the number of parameters of a command
+// 0 if it's a plain command with no parameters
+// -1 if string is NULL
+int CountParams(const char *cmd) {
+	if (NULL == cmd ) return -1;
+	int count=0;
+	char cmd_copy[MAX_SOCKET_BUF];
+	strcpy(cmd_copy, cmd);
+	char *next_token;
+	
+	next_token = strtok(cmd_copy, " ");
+	while (next_token != NULL) {
+		count++;
+		next_token = strtok(NULL, " ");	
+	}
+	
+	// nr of parameters is 1 less than number of tokens
+	return count-1;
 }
