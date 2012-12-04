@@ -6,6 +6,8 @@
 
 
 WINDOW *create_newwin(int height, int width, int starty, int startx);
+int InitCursesDisplay(void);
+void EndCursesDisplay(void);
 void HandleKeypress(int input_character, char *user_command);
 void HandleMessageFromServer(char *message_from_server);
 void SetNonblocking(int sock);

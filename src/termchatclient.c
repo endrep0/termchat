@@ -43,7 +43,6 @@ int main(int argc, char *argv[]) {
 	int user_input_char;
 	char buffromserver[MAX_SOCKET_BUF];
 	int lenfromserver;
-	int max_input_length = MAX_MSG_LENGTH;
 
 	// initialize chat window buffer
 	chat_window_buffer_last_element_index=-1;
@@ -99,66 +98,16 @@ int main(int argc, char *argv[]) {
 	// set the socket to non-blocking, we can read it even if its empty, without blocking
 	SetNonblocking(csock);
 	
-	// ok we are connected
-
-	
-	// start curses mode
-	initscr();
-	// line buffering disabled, pass on every key press
-	cbreak();
-	// also handle function keys, like F10 for exit
-	keypad(stdscr, TRUE);
-
-	// set size for windows
-	// input window at the bottom
-	input_win_height = 3;
-	input_win_width = COLS;
-	input_win_starty = LINES-input_win_height;
-	input_win_startx = 0;
-	
-	// nicklist window, above the input window, right side
-	nicklist_win_height = LINES-input_win_height;
-	nicklist_win_width = MAX_NICK_LENGTH+2;
-	nicklist_win_starty = 0;
-	nicklist_win_startx = COLS-nicklist_win_width;
-
-	// chat window, above the input window, left side
-	chat_win_height = LINES-input_win_height;
-	chat_win_width = COLS-nicklist_win_width;
-	chat_win_starty = 0;
-	chat_win_startx = 0;
-	
-	if (CHAT_WINDOW_BUFFER_MAX_LINES < chat_win_height-2) {
+	// ok we are connected, let's init the display
+	// quit if failed
+	if (InitCursesDisplay()) {
+		// free the addrinfo struct
 		freeaddrinfo(res);
-		//end curses mode
-		endwin();
 		// close the socket
 		close(csock);			
-		fprintf(stderr, "Error, please set a higher CHAT_WINDOW_BUFFER_MAX_LINES.\n");
 		return -1;
 	}
 
-
-	// we will count input characters, and only save them & write them to display MAX_MSG_LENGTH isn't reached yet
-	noecho();
-
-
-	refresh();
-	nicklist_win = create_newwin(nicklist_win_height, nicklist_win_width, nicklist_win_starty, nicklist_win_startx);
-	input_win = create_newwin(input_win_height, input_win_width, input_win_starty, input_win_startx);
-	chat_win = create_newwin(chat_win_height, chat_win_width, chat_win_starty, chat_win_startx);
-
-
-	// greeting msg
-	AddMsgToChatWindow("Welcome to the termchat client!", false);
-	AddMsgToChatWindow("To exit: /exit, /help for available commands.", false);	
-
-	// if the users terminal size is too small, don't allow him to type messages too long	
-	if (COLS-14<MAX_MSG_LENGTH) max_input_length=COLS-3;
-
-	//move(LINES-2,1);
-	wmove(input_win,1,1);
-	wrefresh(input_win);
 
 	// main loop, let's read user input character by character, until it's too long or we get a NewLine
 	// wgetch should time out after 50ms, giving a chance to the main loop to read network data, even if there's no user interaction
@@ -191,19 +140,75 @@ int main(int argc, char *argv[]) {
 		}
 
 	}
-
-	// free windows from memory
-	delwin(nicklist_win);
-	delwin(input_win);
-	delwin(chat_win);
-	//end curses mode
-	endwin();
+	// free curses stuff
+	EndCursesDisplay();
 	// free the addrinfo struct
 	freeaddrinfo(res);
 	// close the socket
 	close(csock);	
 	return 0;
 }
+
+// init the display
+// will return -1 on error
+int InitCursesDisplay(void) {
+	// start curses mode
+	initscr();
+	// line buffering disabled, pass on every key press
+	cbreak();
+	// also handle function keys, like F10 for exit
+	keypad(stdscr, TRUE);
+
+	// set size for windows
+	// input window at the bottom
+	input_win_height = 3;
+	input_win_width = COLS;
+	input_win_starty = LINES-input_win_height;
+	input_win_startx = 0;
+	
+	// nicklist window, above the input window, right side
+	nicklist_win_height = LINES-input_win_height;
+	nicklist_win_width = MAX_NICK_LENGTH+2;
+	nicklist_win_starty = 0;
+	nicklist_win_startx = COLS-nicklist_win_width;
+
+	// chat window, above the input window, left side
+	chat_win_height = LINES-input_win_height;
+	chat_win_width = COLS-nicklist_win_width;
+	chat_win_starty = 0;
+	chat_win_startx = 0;
+	
+	if (CHAT_WINDOW_BUFFER_MAX_LINES < chat_win_height-2) {
+		endwin();
+		fprintf(stderr, "Error, please set a higher CHAT_WINDOW_BUFFER_MAX_LINES.\n");
+		return -1;
+	}
+
+
+	// we will count input characters, and only save them & write them to display MAX_MSG_LENGTH isn't reached yet
+	noecho();
+	refresh();
+	nicklist_win = create_newwin(nicklist_win_height, nicklist_win_width, nicklist_win_starty, nicklist_win_startx);
+	input_win = create_newwin(input_win_height, input_win_width, input_win_starty, input_win_startx);
+	chat_win = create_newwin(chat_win_height, chat_win_width, chat_win_starty, chat_win_startx);
+	// greeting msg
+	AddMsgToChatWindow("Welcome to the termchat client!", false);
+	AddMsgToChatWindow("To exit: /exit, /help for available commands.", false);	
+
+	wmove(input_win,1,1);
+	wrefresh(input_win);
+	return 0;
+}
+
+void EndCursesDisplay(void) {
+	// free windows from memory
+	delwin(nicklist_win);
+	delwin(input_win);
+	delwin(chat_win);
+	//end curses mode
+	endwin();
+}
+	
 
 void HandleKeypress(int input_character, char *user_command) {
 	int i;
