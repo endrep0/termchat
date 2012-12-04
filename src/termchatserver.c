@@ -380,7 +380,7 @@ void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
 		if ( strlen(passwords[i].nickname) > 0 && !strcmp(passwords[i].nickname, newnick)) {
 			// yes it's protected. if password wasn't sent, bad luck
 			if (!password_is_sent) {
-				sprintf(reply, "CHANGENICKERROR Nick is password protected, please include pass.\n");
+				sprintf(reply, "CHANGENICKERROR Nick is protected, please include pass.\n");
 				send(chat_clients[clientindex].socket, reply, strlen(reply), 0);					
 				return;
 			}

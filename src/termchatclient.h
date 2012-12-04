@@ -6,7 +6,7 @@
 
 
 WINDOW *create_newwin(int height, int width, int starty, int startx);
-void HandleKeypress(void);
+void HandleKeypress(int input_character, char *user_command);
 void HandleMessageFromServer(char *message_from_server);
 void SetNonblocking(int sock);
 void AddMsgToChatWindow(const char* msg, int timestamped);
