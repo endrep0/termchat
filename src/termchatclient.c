@@ -29,31 +29,25 @@ int chat_window_buffer_last_element_index;
 int chat_window_currently_showing_first;
 int chat_window_currently_showing_last;
 
+// other stuff
+int csock;
 char ignored_nicks[MAX_IGNORES][MAX_NICK_LENGTH+1];
+int user_input_char;
+// protocol limit for the message length
+char user_input_str[MAX_MSG_LENGTH+1];
+int current_char=0;
 	
 int main(int argc, char *argv[]) {
 	int i;
 	struct addrinfo hints;
 	struct addrinfo* res;
 	int err;
-	int csock;
+
 	char buffromserver[MAX_SOCKET_BUF];
 	int lenfromserver;
-	char tmp_msg[MAX_MSG_LENGTH+1];
-	char tmp_nick1[MAX_NICK_LENGTH+1];
-	char tmp_pass[MAX_PASS_LENGTH+1];
-	char tmp_buf[MAX_SOCKET_BUF];
-	char tmp_chan[MAX_CHANNEL_LENGTH+1];
 
-	int user_input_char;
-	// protocol limit for the message length
-	char user_input_str[MAX_MSG_LENGTH+1];
-	// todo think this through	
-	// input limit may be reduced during runtime, if the user's terminal is too small
-	int current_char;
 	int max_input_length = MAX_MSG_LENGTH;
-	// saved coordinates
-	int saved_x, saved_y;
+
 	// initialize chat window buffer
 	chat_window_buffer_last_element_index=-1;
 	// for scrolling with keyboard
@@ -150,7 +144,6 @@ int main(int argc, char *argv[]) {
 
 	// we will count input characters, and only save them & write them to display MAX_MSG_LENGTH isn't reached yet
 	noecho();
-	current_char=0;
 
 
 	refresh();
@@ -177,181 +170,10 @@ int main(int argc, char *argv[]) {
 	while(1)
 	{	
 		if ((user_input_char=wgetch(input_win)) != ERR) {
-
-			// handle backspace
-			if (user_input_char == KEY_BACKSPACE || user_input_char == 127) {
-				if (current_char > 0) {
-					current_char--;
-					getyx(input_win, saved_y, saved_x);
-					mvwprintw(input_win, saved_y, saved_x-1, " ");
-					wmove(input_win, saved_y, saved_x-1);
-					wrefresh(input_win);
-				}
-				continue;
-			}
-			
-			// handle up arrow key for scrolling chat window
-			if (user_input_char == KEY_UP ) {
-				ScrollChatWindow(SCROLL_DIRECTION_UP);
-				continue;
-			}
-			
-			// handle down arrow key for scrolling chat window
-			if (user_input_char == KEY_DOWN) {
-				ScrollChatWindow(SCROLL_DIRECTION_DOWN);
-				continue;
-			}
-
-			// if we get an escape key, we need to get 2 more chars to see if it's up or down arrow
-			if (user_input_char == 27) {
-				user_input_char=wgetch(input_win);
-				user_input_char=wgetch(input_win);
-				
-				// handle up arrow key for scrolling chat window
-				if (user_input_char == 65 ) {
-					ScrollChatWindow(SCROLL_DIRECTION_UP);
-					continue;
-				}
-				
-				// handle down arrow key for scrolling chat window
-				if (user_input_char == 66) {
-					ScrollChatWindow(SCROLL_DIRECTION_DOWN);
-					continue;
-				}
-			}
-
-			// if it is a newline character, the user finished typing a command/msg
-			// it's time to evaluate the input
-			if (user_input_char == '\n')
-			{
-				// let's close the string
-				user_input_str[current_char]='\0';
-				
-				if (strstr(user_input_str,"/exit") || strstr(user_input_str,"/quit")  )
-					break;
-				if (strstr(user_input_str,"/help")) {
-					AddMsgToChatWindow("Showing help:", false);
-					AddMsgToChatWindow(" protecting your nick on this server with a password: /pass <password>", false);
-					AddMsgToChatWindow(" changing your nick: /nick <newnick> [password]", false);
-					AddMsgToChatWindow(" changing channel: /channel <newchannel>", false);
-					AddMsgToChatWindow(" private message: /msg <nick> <message>", false);
-					AddMsgToChatWindow(" ignoring someone: /ignore nick", false);
-					AddMsgToChatWindow(" to exit: /exit", false);					
-					}
-					
-				else if ( !StrBegins(user_input_str, "/nick ")) {
-					if (CountParams(user_input_str) == 1) {
-						sscanf(user_input_str, "/nick %s", tmp_nick1);
-						bzero(tmp_buf, MAX_SOCKET_BUF);
-						sprintf(tmp_buf, "CHANGENICK %s\n", tmp_nick1);
-						send(csock, tmp_buf, sizeof(tmp_buf), 0);
-					}
-					else if (CountParams(user_input_str) == 2) {
-						sscanf(user_input_str, "/nick %s %s", tmp_nick1, tmp_pass);
-						// calculate the hash of the password
-						SHA512(tmp_pass, password_sha512);						
-						bzero(tmp_buf, MAX_SOCKET_BUF);
-						sprintf(tmp_buf, "CHANGENICK %s %s\n", tmp_nick1, password_sha512);
-						send(csock, tmp_buf, sizeof(tmp_buf), 0);
-						bzero(password_sha512, 129);
-					}
-					else
-						AddMsgToChatWindow("usage: /nick <newnick> or /nick <newnick> <password>", false);
-				}
-				
-				else if ( !StrBegins(user_input_str, "/pass ")) {
-					bzero(tmp_pass, MAX_PASS_LENGTH);
-					sscanf(user_input_str, "/pass %s", tmp_pass);
-					bzero(tmp_buf, MAX_SOCKET_BUF);
-					// calculate the hash of the password
-					SHA512(tmp_pass, password_sha512);
-					
-					
-					sprintf(tmp_buf, "CHANGEPASS %s\n", password_sha512);
-					send(csock, tmp_buf, sizeof(tmp_buf), 0);
-					bzero(password_sha512, 129);
-				}				
-				
-				else if ( !StrBegins(user_input_str, "/channel ") ) {
-					sscanf(user_input_str, "/channel %s", tmp_chan);
-					bzero(tmp_buf, MAX_SOCKET_BUF);
-					sprintf(tmp_buf, "CHANGECHANNEL %s\n", tmp_chan);
-					send(csock, tmp_buf, sizeof(tmp_buf), 0);
-				}
-
-				// just an alternative command to /channel
-				else if ( !StrBegins(user_input_str, "/join ") ) {
-					sscanf(user_input_str, "/join %s", tmp_chan);
-					bzero(tmp_buf, MAX_SOCKET_BUF);
-					sprintf(tmp_buf, "CHANGECHANNEL %s\n", tmp_chan);
-					send(csock, tmp_buf, sizeof(tmp_buf), 0);
-				}	
-				
-				// send a private message, /msg <targetnick> <message>
-				else if ( !StrBegins(user_input_str, "/msg ") ) {
-					sscanf(user_input_str, "/msg %s %[^\n]", tmp_nick1, tmp_msg);
-					bzero(tmp_buf, MAX_SOCKET_BUF);
-					sprintf(tmp_buf, "PRIVMSG %s %s\n", tmp_nick1, tmp_msg);
-					send(csock, tmp_buf, sizeof(tmp_buf), 0);
-				}
-
-				// add someone to the ignore list
-				else if ( !StrBegins(user_input_str, "/ignore ") ) {
-					sscanf(user_input_str, "/ignore %s", tmp_nick1);
-					// cycle through ignore slots, to see if there's any free
-					for (i=0; i<MAX_IGNORES && ignored_nicks[i]=='\0'; i++);
-					if (i==MAX_IGNORES) {
-						AddMsgToChatWindow("Ignore list full.", false);			
-					}
-					// todo unignore
-
-					else {
-						// ok we have a free slot on our hands, add the ignore
-						strcpy(ignored_nicks[i],tmp_nick1);
-						AddMsgToChatWindow("Ignore list updated.", false);		
-					}
-				}	
-				
-				else {
-					// if it didn't match any of the commands, it is a plain message to the channel
-					// let's prepare it in the needed format, and send it to the server
-					bzero(tmp_buf, MAX_SOCKET_BUF);
-					sprintf(tmp_buf, "CHANMSG %s\n", user_input_str);					
-					send(csock, tmp_buf, sizeof(tmp_buf), 0);
-					// we don't print the message on the UI;
-					// protocol says that we will get our own message back, which serves as an ACK by itself
-					// so we will only print our own message if we get it from the server					
-				}
-
-				// reset input window with a horizontal line made of ' ' characters
-				mvwhline(input_win, 1, 1, ' ', input_win_width-2);
-				wmove(input_win,1,1);
-				wrefresh(chat_win);
-				wrefresh(input_win);
-				// reset input string, because we got an NL
-				bzero(user_input_str, MAX_MSG_LENGTH);
-				current_char = 0;
-				continue;
-			}			
-
-			// it is not a backspace or newline character
-			// check the msg limit, don't allow user to write more
-			if (current_char==MAX_MSG_LENGTH) {
-				beep();
-				continue;
-			}
-
-			// ok, not a newline, not a backspace, and limit is not reached yet
-			// let's save the input character into our input string
-			if (user_input_char!='\n') {
-				user_input_str[current_char]=user_input_char;
-				current_char++;
-				wprintw(input_win, "%c", user_input_char);
-			}
+			HandleKeypress();
 		}
 		
-		// we handled the keyboard input, now let's check if we have anything from the chat server
-		
+		// we handled the keyboard input, now let's check if we have anything from the chat server		
 		// reset the previous buffer state, in which we will read the server msg
 		bzero(buffromserver, MAX_SOCKET_BUF);
 		// we can recv() without blocking, as csock is set to non-blocking
@@ -381,6 +203,189 @@ int main(int argc, char *argv[]) {
 	// close the socket
 	close(csock);	
 	return 0;
+}
+
+void HandleKeypress(void) {
+	int i;
+	
+	char tmp_msg[MAX_MSG_LENGTH+1];
+	char tmp_nick1[MAX_NICK_LENGTH+1];
+	char tmp_pass[MAX_PASS_LENGTH+1];
+	char tmp_buf[MAX_SOCKET_BUF];
+	char tmp_chan[MAX_CHANNEL_LENGTH+1];
+	// saved coordinates
+	int saved_x, saved_y;	
+
+	// handle backspace
+	if (user_input_char == KEY_BACKSPACE || user_input_char == 127) {
+		if (current_char > 0) {
+			current_char--;
+			getyx(input_win, saved_y, saved_x);
+			mvwprintw(input_win, saved_y, saved_x-1, " ");
+			wmove(input_win, saved_y, saved_x-1);
+			wrefresh(input_win);
+		}
+		return;
+	}
+	
+	// handle up arrow key for scrolling chat window
+	if (user_input_char == KEY_UP ) {
+		ScrollChatWindow(SCROLL_DIRECTION_UP);
+		return;
+	}
+	
+	// handle down arrow key for scrolling chat window
+	if (user_input_char == KEY_DOWN) {
+		ScrollChatWindow(SCROLL_DIRECTION_DOWN);
+		return;
+	}
+
+	// if we get an escape key, we need to get 2 more chars to see if it's up or down arrow
+	if (user_input_char == 27) {
+		user_input_char=wgetch(input_win);
+		user_input_char=wgetch(input_win);
+		
+		// handle up arrow key for scrolling chat window
+		if (user_input_char == 65 ) {
+			ScrollChatWindow(SCROLL_DIRECTION_UP);
+			return;
+		}
+		
+		// handle down arrow key for scrolling chat window
+		if (user_input_char == 66) {
+			ScrollChatWindow(SCROLL_DIRECTION_DOWN);
+			return;
+		}
+	}
+
+	// if it is a newline character, the user finished typing a command/msg
+	// it's time to evaluate the input
+	if (user_input_char == '\n')
+	{
+		// let's close the string
+		user_input_str[current_char]='\0';
+		
+		if (strstr(user_input_str,"/exit") || strstr(user_input_str,"/quit")  )
+			return;
+		if (strstr(user_input_str,"/help")) {
+			AddMsgToChatWindow("Showing help:", false);
+			AddMsgToChatWindow(" protecting your nick on this server with a password: /pass <password>", false);
+			AddMsgToChatWindow(" changing your nick: /nick <newnick> [password]", false);
+			AddMsgToChatWindow(" changing channel: /channel <newchannel>", false);
+			AddMsgToChatWindow(" private message: /msg <nick> <message>", false);
+			AddMsgToChatWindow(" ignoring someone: /ignore nick", false);
+			AddMsgToChatWindow(" to exit: /exit", false);					
+			}
+			
+		else if ( !StrBegins(user_input_str, "/nick ")) {
+			if (CountParams(user_input_str) == 1) {
+				sscanf(user_input_str, "/nick %s", tmp_nick1);
+				bzero(tmp_buf, MAX_SOCKET_BUF);
+				sprintf(tmp_buf, "CHANGENICK %s\n", tmp_nick1);
+				send(csock, tmp_buf, sizeof(tmp_buf), 0);
+			}
+			else if (CountParams(user_input_str) == 2) {
+				sscanf(user_input_str, "/nick %s %s", tmp_nick1, tmp_pass);
+				// calculate the hash of the password
+				SHA512(tmp_pass, password_sha512);						
+				bzero(tmp_buf, MAX_SOCKET_BUF);
+				sprintf(tmp_buf, "CHANGENICK %s %s\n", tmp_nick1, password_sha512);
+				send(csock, tmp_buf, sizeof(tmp_buf), 0);
+				bzero(password_sha512, 129);
+			}
+			else
+				AddMsgToChatWindow("usage: /nick <newnick> or /nick <newnick> <password>", false);
+		}
+		
+		else if ( !StrBegins(user_input_str, "/pass ")) {
+			bzero(tmp_pass, MAX_PASS_LENGTH);
+			sscanf(user_input_str, "/pass %s", tmp_pass);
+			bzero(tmp_buf, MAX_SOCKET_BUF);
+			// calculate the hash of the password
+			SHA512(tmp_pass, password_sha512);
+			
+			
+			sprintf(tmp_buf, "CHANGEPASS %s\n", password_sha512);
+			send(csock, tmp_buf, sizeof(tmp_buf), 0);
+			bzero(password_sha512, 129);
+		}				
+		
+		else if ( !StrBegins(user_input_str, "/channel ") ) {
+			sscanf(user_input_str, "/channel %s", tmp_chan);
+			bzero(tmp_buf, MAX_SOCKET_BUF);
+			sprintf(tmp_buf, "CHANGECHANNEL %s\n", tmp_chan);
+			send(csock, tmp_buf, sizeof(tmp_buf), 0);
+		}
+
+		// just an alternative command to /channel
+		else if ( !StrBegins(user_input_str, "/join ") ) {
+			sscanf(user_input_str, "/join %s", tmp_chan);
+			bzero(tmp_buf, MAX_SOCKET_BUF);
+			sprintf(tmp_buf, "CHANGECHANNEL %s\n", tmp_chan);
+			send(csock, tmp_buf, sizeof(tmp_buf), 0);
+		}	
+		
+		// send a private message, /msg <targetnick> <message>
+		else if ( !StrBegins(user_input_str, "/msg ") ) {
+			sscanf(user_input_str, "/msg %s %[^\n]", tmp_nick1, tmp_msg);
+			bzero(tmp_buf, MAX_SOCKET_BUF);
+			sprintf(tmp_buf, "PRIVMSG %s %s\n", tmp_nick1, tmp_msg);
+			send(csock, tmp_buf, sizeof(tmp_buf), 0);
+		}
+
+		// add someone to the ignore list
+		else if ( !StrBegins(user_input_str, "/ignore ") ) {
+			sscanf(user_input_str, "/ignore %s", tmp_nick1);
+			// cycle through ignore slots, to see if there's any free
+			for (i=0; i<MAX_IGNORES && ignored_nicks[i]=='\0'; i++);
+			if (i==MAX_IGNORES) {
+				AddMsgToChatWindow("Ignore list full.", false);			
+			}
+			// todo unignore
+
+			else {
+				// ok we have a free slot on our hands, add the ignore
+				strcpy(ignored_nicks[i],tmp_nick1);
+				AddMsgToChatWindow("Ignore list updated.", false);		
+			}
+		}	
+		
+		else {
+			// if it didn't match any of the commands, it is a plain message to the channel
+			// let's prepare it in the needed format, and send it to the server
+			bzero(tmp_buf, MAX_SOCKET_BUF);
+			sprintf(tmp_buf, "CHANMSG %s\n", user_input_str);					
+			send(csock, tmp_buf, sizeof(tmp_buf), 0);
+			// we don't print the message on the UI;
+			// protocol says that we will get our own message back, which serves as an ACK by itself
+			// so we will only print our own message if we get it from the server					
+		}
+
+		// reset input window with a horizontal line made of ' ' characters
+		mvwhline(input_win, 1, 1, ' ', input_win_width-2);
+		wmove(input_win,1,1);
+		wrefresh(chat_win);
+		wrefresh(input_win);
+		// reset input string, because we got an NL
+		bzero(user_input_str, MAX_MSG_LENGTH);
+		current_char = 0;
+		return;
+	}			
+
+	// it is not a backspace or newline character
+	// check the msg limit, don't allow user to write more
+	if (current_char==MAX_MSG_LENGTH) {
+		beep();
+		return;
+	}
+
+	// ok, not a newline, not a backspace, and limit is not reached yet
+	// let's save the input character into our input string
+	if (user_input_char!='\n') {
+		user_input_str[current_char]=user_input_char;
+		current_char++;
+		wprintw(input_win, "%c", user_input_char);
+	}
 }
 
 // handle a message from server
