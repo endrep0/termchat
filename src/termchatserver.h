@@ -11,13 +11,13 @@ typedef struct {
 	int socket;
 	// status: DISCONNECTED, WAITING_FOR_NICK, HAS_NICK_WAITING_FOR_CHANNEL, CHATTING
 	int status;
-	char nickname[MAX_NICK_LENGTH];
-	char channel[MAX_CHANNEL_LENGTH];
+	char nickname[MAX_NICK_LENGTH+1];
+	char channel[MAX_CHANNEL_LENGTH+1];
 } chat_client_t;
 
 // password pairs data type
 typedef struct {
-	char nickname[MAX_NICK_LENGTH];
+	char nickname[MAX_NICK_LENGTH+1];
 	char password_sha512[129];
 } passwords_t;
 

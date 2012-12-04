@@ -350,7 +350,7 @@ void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
 			return;
 		}
 		
-		if (strlen(newnick)>MAX_NICK_LENGTH -1) {
+		if (strlen(newnick)>MAX_NICK_LENGTH) {
 				sprintf(reply, "CHANGENICKERROR Nick is too long.\n");
 				send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
 				return;

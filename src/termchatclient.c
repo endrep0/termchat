@@ -162,7 +162,7 @@ int main(int argc, char *argv[]) {
 
 	// greeting msg
 	AddMsgToChatWindow("Welcome to the termchat client!", false);
-	AddMsgToChatWindow("To list other available commands: type /help. To exit: /exit.", false);	
+	AddMsgToChatWindow("To exit: /exit, /help for available commands.", false);	
 
 	// if the users terminal size is too small, don't allow him to type messages too long	
 	if (COLS-14<MAX_MSG_LENGTH) max_input_length=COLS-3;
@@ -382,7 +382,7 @@ int main(int argc, char *argv[]) {
 					// if sender wasn't on ignore, print the received message on the screen in the finalized format
 					// this is where we print accepted channel messages
 					if (i==MAX_IGNORES) {
-						sprintf(msg_for_window, "<%s> %s", tmp_nick1, tmp_msg);
+						sprintf(msg_for_window, "%s %s", tmp_nick1, tmp_msg);
 						AddMsgToChatWindow(msg_for_window, true);
 						break;
 					}
@@ -401,15 +401,19 @@ int main(int argc, char *argv[]) {
 					}				
 					// if sender wasn't on ignore, print the received message on the screen in the finalized format
 					if (i==MAX_IGNORES)	{
-						sprintf(msg_for_window, "%s has sent you a private message: %s", tmp_nick1, tmp_msg);
+						sprintf(msg_for_window, "%s has sent you a private message:", tmp_nick1);
+						AddMsgToChatWindow(msg_for_window, true);
+						sprintf(msg_for_window, " %s", tmp_msg);
 						AddMsgToChatWindow(msg_for_window, true);
 					}
 				}
 				
 				if (!StrBegins(next_msg, "PRIVMSGOK ")) {
 					sscanf(next_msg, "PRIVMSGOK %s %[^\n]", tmp_nick1, tmp_msg);
-					sprintf(msg_for_window, "you sent a private message to %s: %s", tmp_nick1, tmp_msg);
+					sprintf(msg_for_window, "you sent a private message to %s:", tmp_nick1);
 					AddMsgToChatWindow(msg_for_window, true);
+					sprintf(msg_for_window, " %s", tmp_msg);
+					AddMsgToChatWindow(msg_for_window, true);					
 				}				
 				
 				if (!StrBegins(next_msg, "CHANGENICKOK ")) {
@@ -536,7 +540,7 @@ void AddMsgToChatWindow(const char* msg, int timestamped) {
 		// get current time into time_now, and then print into tmp_time string
 		time_now = time (0);
 		strftime(tmp_time, 9, "%H:%M:%S", localtime (&time_now));
-		sprintf(msg_to_print, "[%s] %s", tmp_time, msg);
+		sprintf(msg_to_print, "%s %s", tmp_time, msg);
 	}
 	else {
 		sprintf(msg_to_print, "%s", msg);
