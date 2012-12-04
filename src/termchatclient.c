@@ -72,8 +72,8 @@ int main(int argc, char *argv[]) {
 		bzero(ignored_nicks[i],MAX_NICK_LENGTH);
 
 	// did we get a server as parameter
-	if(argc != 2) {
-		printf("Usage: %s <chat server IP> [nick] [pass]\n", argv[0]);
+	if(argc != 3) {
+		printf("Usage: %s <chat server IP> <port>\n", argv[0]);
 		return -1;
 	}
 
@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
 	hints.ai_socktype = SOCK_STREAM;
 
 	// resolve address, and print any errors to stderr
-	err = getaddrinfo(argv[1], PORT, &hints, &res);
+	err = getaddrinfo(argv[1], argv[2], &hints, &res);
 	if(err != 0) {
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(err));
 		freeaddrinfo(res);

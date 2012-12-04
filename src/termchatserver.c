@@ -213,7 +213,12 @@ void ProcessSocketsToRead() {
 			ProcessPendingRead(i);
 }
 
-int main() {
+int main(int argc, char *argv[]) {
+	// did we get port as parameter
+	if(argc != 2) {
+		printf("Usage: %s <port to listen on>\n", argv[0]);
+		return -1;
+	}
 
 	// timeout for select
 	struct timeval select_timeout;
@@ -228,7 +233,7 @@ int main() {
 
 	
 	// int getaddrinfo(const char *node, const char *service, const struct addrinfo *hints, struct addrinfo **res);
-	err = getaddrinfo(NULL, PORT, &hints, &res);
+	err = getaddrinfo(NULL, argv[1], &hints, &res);
 	if(err != 0) {
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(err));
 		return -1;
@@ -241,8 +246,8 @@ int main() {
 	// int socket(int domain, int type, int protocol);
 	server_socket = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
 	if (server_socket < 0) {
+	  printf("Error creating server listening socket.\n");
 	  perror("socket");
-	  // TODO error msg
 	  return -1;
 	}
 

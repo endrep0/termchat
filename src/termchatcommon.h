@@ -4,8 +4,6 @@
 #define MAX_PASS_LENGTH 12
 #define MAX_CHANNEL_LENGTH 12
 
-#define PORT "2233"
-
 #define TRUE 1
 #define FALSE 0
 #define DEBUG
