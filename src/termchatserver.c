@@ -381,7 +381,7 @@ void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
 			if ( strlen(passwords[i].nickname) > 0 && !strcmp(passwords[i].nickname, newnick)) {
 				// yes it's protected. if password wasn't sent, bad luck
 				if (!password_is_sent) {
-					sprintf(reply, "CHANGENICKERROR Nick %s is password protected, and you haven't sent a password.\n", newnick);
+					sprintf(reply, "CHANGENICKERROR Nick is password protected, please include pass.\n");
 					send(chat_clients[clientindex].socket, reply, strlen(reply), 0);					
 					return;
 				}
@@ -647,7 +647,7 @@ void ProcessClientPrivMsg(int clientindex, const char *priv_msg) {
 	
 	// we don't accept private messages, if the client hasn't set a nickname yet
 	if (chat_clients[clientindex].status == WAITING_FOR_NICK) {
-		sprintf(msg_to_send, "PRIVMSGERROR Please set a nickname before sending a private message.\n");
+		sprintf(msg_to_send, "PRIVMSGERROR Please set a nickname first.\n");
 		send(chat_clients[clientindex].socket, msg_to_send, strlen(msg_to_send), 0);
 		return;
 	}
@@ -669,7 +669,7 @@ void ProcessClientPrivMsg(int clientindex, const char *priv_msg) {
 	}
 
 	// if we get this far, that means we couldn't find the target nick
-	sprintf(msg_to_send, "PRIVMSGERROR Can't deliver message, no user named '%s' is online.\n", target_nick);
+	sprintf(msg_to_send, "PRIVMSGERROR %s is not online.\n", target_nick);
 	send(chat_clients[clientindex].socket, msg_to_send, strlen(msg_to_send), 0);		
 }
 

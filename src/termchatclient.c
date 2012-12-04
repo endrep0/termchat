@@ -302,15 +302,14 @@ int main(int argc, char *argv[]) {
 					// cycle through ignore slots, to see if there's any free
 					for (i=0; i<MAX_IGNORES && ignored_nicks[i]=='\0'; i++);
 					if (i==MAX_IGNORES) {
-						AddMsgToChatWindow("Ignore list full. You could remove an existing ignore using /unignore <nick>.", false);			
+						AddMsgToChatWindow("Ignore list full.", false);			
 					}
 					// todo unignore
 
 					else {
 						// ok we have a free slot on our hands, add the ignore
 						strcpy(ignored_nicks[i],tmp_nick1);
-						mvwprintw(chat_win, chat_win_currenty, chat_win_currentx, "Ignore list updated.");
-						chat_win_currenty++;							
+						AddMsgToChatWindow("Ignore list updated.", false);		
 					}
 				}	
 				
@@ -403,8 +402,8 @@ int main(int argc, char *argv[]) {
 					if (i==MAX_IGNORES)	{
 						sprintf(msg_for_window, "%s has sent you a private message:", tmp_nick1);
 						AddMsgToChatWindow(msg_for_window, true);
-						sprintf(msg_for_window, " %s", tmp_msg);
-						AddMsgToChatWindow(msg_for_window, true);
+						sprintf(msg_for_window, "          %s", tmp_msg);
+						AddMsgToChatWindow(msg_for_window, false);
 					}
 				}
 				
@@ -412,8 +411,8 @@ int main(int argc, char *argv[]) {
 					sscanf(next_msg, "PRIVMSGOK %s %[^\n]", tmp_nick1, tmp_msg);
 					sprintf(msg_for_window, "you sent a private message to %s:", tmp_nick1);
 					AddMsgToChatWindow(msg_for_window, true);
-					sprintf(msg_for_window, " %s", tmp_msg);
-					AddMsgToChatWindow(msg_for_window, true);					
+					sprintf(msg_for_window, "          %s", tmp_msg);
+					AddMsgToChatWindow(msg_for_window, false);					
 				}				
 				
 				if (!StrBegins(next_msg, "CHANGENICKOK ")) {
