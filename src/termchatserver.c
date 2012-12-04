@@ -111,11 +111,6 @@ int main(int argc, char *argv[]) {
 	new_signal_action.sa_flags = 0;
 	sigaction(SIGTERM, &new_signal_action, NULL);
 	
-	// allocate memory for the client socket list
-	/*
-	memset((char *) &connected_client_socks, 0, sizeof(connected_client_socks));
-	*/
-
 	// main loop, we iterate through the sockets
 	// accept connections if needed, read them if needed, giving them a small timeout	
 	while (1)
