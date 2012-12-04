@@ -21,7 +21,10 @@ typedef struct {
 	char password_sha512[129];
 } passwords_t;
 
-
+void BuildSelectList(void);
+void HandleNewConnection(void);
+void ProcessPendingRead(int clientindex);
+void ProcessSocketsToRead(void);
 int SendMsgToClient(int clientindex, const char *msg);
 void ProcessClientChangeNick(int clientindex, const char *cmd_msg);
 void ProcessClientChangeChan(int clientindex, const char *cmd_msg);
