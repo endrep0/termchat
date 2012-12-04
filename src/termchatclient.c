@@ -383,6 +383,9 @@ int main(int argc, char *argv[]) {
 	return 0;
 }
 
+// handle a message from server
+// uses AddMsgToChatWindow() to add messages to the chat window
+// and UpdateNicklist() to refresh nicklist when needed
 void HandleMessageFromServer(char *message_from_server) {
 	int i;
 	char tmp_msg[MAX_MSG_LENGTH+1];
@@ -466,16 +469,10 @@ void HandleMessageFromServer(char *message_from_server) {
 		AddMsgToChatWindow(msg_for_window, true);
 	}
 	
-
 	if (!StrBegins(message_from_server, "CHANUPDATELEAVE ")) {
 		sscanf(message_from_server, "CHANUPDATELEAVE %[^\n]", tmp_nick1);
 		sprintf(msg_for_window, "%s has left the channel.", tmp_nick1);
 		AddMsgToChatWindow(msg_for_window, true);
-	}
-	
-	if (!StrBegins(message_from_server, "CHANUPDATEALLNICKS ")) {
-		sscanf(message_from_server, "CHANUPDATEALLNICKS %[^\n]", tmp_buf);
-		UpdateNicklist(tmp_buf);
 	}
 	
 	if (!StrBegins(message_from_server, "CHANGEPASSOK ")) {
@@ -488,11 +485,6 @@ void HandleMessageFromServer(char *message_from_server) {
 		sscanf(message_from_server, "CHANGEPASSERROR %[^\n]", tmp_msg);
 		AddMsgToChatWindow(tmp_msg, true);
 	}						
-	
-	if (!StrBegins(message_from_server, "CMDERROR ")) {
-		sscanf(message_from_server, "CMDERROR %[^\n]", tmp_msg);
-		AddMsgToChatWindow(tmp_msg, true);
-	}
 	
 	if (!StrBegins(message_from_server, "CHANGECHANNELERROR ")) {
 		sscanf(message_from_server, "CHANGECHANNELERROR %[^\n]", tmp_msg);
@@ -513,6 +505,18 @@ void HandleMessageFromServer(char *message_from_server) {
 		sscanf(message_from_server, "PRIVMSGERROR %[^\n]", tmp_msg);
 		AddMsgToChatWindow(tmp_msg, true);
 	}
+	
+	if (!StrBegins(message_from_server, "CMDERROR ")) {
+		sscanf(message_from_server, "CMDERROR %[^\n]", tmp_msg);
+		AddMsgToChatWindow(tmp_msg, true);
+	}
+	
+	if (!StrBegins(message_from_server, "CHANUPDATEALLNICKS ")) {
+		sscanf(message_from_server, "CHANUPDATEALLNICKS %[^\n]", tmp_buf);
+		UpdateNicklist(tmp_buf);
+	}	
+
+	
 }
 
 WINDOW *create_newwin(int height, int width, int starty, int startx)
