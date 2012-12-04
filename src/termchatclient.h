@@ -6,6 +6,7 @@
 
 
 WINDOW *create_newwin(int height, int width, int starty, int startx);
+void HandleMessageFromServer(char *message_from_server);
 void SetNonblocking(int sock);
 void AddMsgToChatWindow(const char* msg, int timestamped);
 void ScrollChatWindow(int direction);

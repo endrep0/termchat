@@ -29,6 +29,8 @@ int chat_window_buffer_last_element_index;
 int chat_window_currently_showing_first;
 int chat_window_currently_showing_last;
 
+char ignored_nicks[MAX_IGNORES][MAX_NICK_LENGTH+1];
+	
 int main(int argc, char *argv[]) {
 	int i;
 	struct addrinfo hints;
@@ -38,13 +40,10 @@ int main(int argc, char *argv[]) {
 	char buffromserver[MAX_SOCKET_BUF];
 	int lenfromserver;
 	char tmp_msg[MAX_MSG_LENGTH+1];
-	char msg_for_window[MAX_MSG_LENGTH+1];
 	char tmp_nick1[MAX_NICK_LENGTH+1];
-	char tmp_nick2[MAX_NICK_LENGTH+1];
 	char tmp_pass[MAX_PASS_LENGTH+1];
 	char tmp_buf[MAX_SOCKET_BUF];
 	char tmp_chan[MAX_CHANNEL_LENGTH+1];
-	char ignored_nicks[MAX_IGNORES][MAX_NICK_LENGTH+1];
 
 	int user_input_char;
 	// protocol limit for the message length
@@ -356,138 +355,14 @@ int main(int argc, char *argv[]) {
 		// reset the previous buffer state, in which we will read the server msg
 		bzero(buffromserver, MAX_SOCKET_BUF);
 		// we can recv() without blocking, as csock is set to non-blocking
-		if ((lenfromserver = recv(csock, buffromserver, MAX_SOCKET_BUF, 0)) > 0) {
-			
+		if ((lenfromserver = recv(csock, buffromserver, MAX_SOCKET_BUF, 0)) > 0) {			
 			// because of the stream behavior, buffromserver can have more than one messages from the server
 			// these are separated by '\n', as per the protocol specification
 			// we will tokenize buffromserver with separator '\n', and process each message one by one
 			char *next_msg;
 			next_msg = strtok(buffromserver, "\n");
 			while (next_msg != NULL) {
-
-				if (!StrBegins(next_msg, "CHANMSGFROM ")) {
-					// we process the message from the server
-					// NewLines are never sent by the server, we use %[^\n] to read whitespaces in the string too
-					sscanf(next_msg, "CHANMSGFROM %s %[^\n]", tmp_nick1, tmp_msg);
-					for (i=0; i<MAX_IGNORES ; i++) {
-						if (!strcmp(ignored_nicks[i],tmp_nick1)) {
-							#ifdef DEBUG
-							AddMsgToChatWindow("Ignored a channel message.", true);
-							#endif
-							break;
-						}
-					}
-					
-					// if sender wasn't on ignore, print the received message on the screen in the finalized format
-					// this is where we print accepted channel messages
-					if (i==MAX_IGNORES) {
-						sprintf(msg_for_window, "%s %s", tmp_nick1, tmp_msg);
-						AddMsgToChatWindow(msg_for_window, true);
-						break;
-					}
-				}
-				
-				if (!StrBegins(next_msg, "PRIVMSGFROM ")) {
-					// we process the message from the server
-					sscanf(next_msg, "PRIVMSGFROM %s %[^\n]", tmp_nick1, tmp_msg);
-					for (i=0; i<MAX_IGNORES ; i++) {
-						if (!strcmp(ignored_nicks[i],tmp_nick1)) {
-							#ifdef DEBUG
-							AddMsgToChatWindow("Ignored a private message.", true);
-							#endif
-							break;
-						}
-					}				
-					// if sender wasn't on ignore, print the received message on the screen in the finalized format
-					if (i==MAX_IGNORES)	{
-						sprintf(msg_for_window, "%s has sent you a private message:", tmp_nick1);
-						AddMsgToChatWindow(msg_for_window, true);
-						sprintf(msg_for_window, "          %s", tmp_msg);
-						AddMsgToChatWindow(msg_for_window, false);
-					}
-				}
-				
-				if (!StrBegins(next_msg, "PRIVMSGOK ")) {
-					sscanf(next_msg, "PRIVMSGOK %s %[^\n]", tmp_nick1, tmp_msg);
-					sprintf(msg_for_window, "you sent a private message to %s:", tmp_nick1);
-					AddMsgToChatWindow(msg_for_window, true);
-					sprintf(msg_for_window, "          %s", tmp_msg);
-					AddMsgToChatWindow(msg_for_window, false);					
-				}				
-				
-				if (!StrBegins(next_msg, "CHANGENICKOK ")) {
-					sscanf(next_msg, "CHANGENICKOK %[^\n]", tmp_nick1);
-					sprintf(msg_for_window, "Your nick is now %s.", tmp_nick1);
-					AddMsgToChatWindow(msg_for_window, true);
-				}				
-				
-				if (!StrBegins(next_msg, "CHANUPDATECHANGENICK ")) {
-					sscanf(next_msg, "CHANUPDATECHANGENICK %s %[^\n]", tmp_nick1, tmp_nick2);
-					sprintf(msg_for_window, "%s is now known as %s", tmp_nick1, tmp_nick2);
-					AddMsgToChatWindow(msg_for_window, true);
-				}	
-				
-				if (!StrBegins(next_msg, "CHANGECHANNELOK ")) {
-					sscanf(next_msg, "CHANGECHANNELNELOK %[^\n]", tmp_chan);
-					sprintf(msg_for_window, "You are now chatting in channel %s.", tmp_chan);
-					AddMsgToChatWindow(msg_for_window, true);
-				}
-				
-				if (!StrBegins(next_msg, "CHANUPDATEJOIN ")) {
-					sscanf(next_msg, "CHANUPDATEJOIN %[^\n]", tmp_nick1);
-					sprintf(msg_for_window, "%s has joined the channel.", tmp_nick1);
-					AddMsgToChatWindow(msg_for_window, true);
-				}
-				
-
-				if (!StrBegins(next_msg, "CHANUPDATELEAVE ")) {
-					sscanf(next_msg, "CHANUPDATELEAVE %[^\n]", tmp_nick1);
-					sprintf(msg_for_window, "%s has left the channel.", tmp_nick1);
-					AddMsgToChatWindow(msg_for_window, true);
-				}
-				
-				if (!StrBegins(next_msg, "CHANUPDATEALLNICKS ")) {
-					sscanf(next_msg, "CHANUPDATEALLNICKS %[^\n]", tmp_buf);
-					UpdateNicklist(tmp_buf);
-			
-				}
-				
-				if (!StrBegins(next_msg, "CHANGEPASSOK ")) {
-					sscanf(next_msg, "CHANGEPASSOK %[^\n]", tmp_nick1);
-					sprintf(msg_for_window, "Password for your nick %s has been updated on the server.", tmp_nick1);
-					AddMsgToChatWindow(msg_for_window, true);
-				}
-
-				if (!StrBegins(next_msg, "CHANGEPASSERROR ")) {
-					sscanf(next_msg, "CHANGEPASSERROR %[^\n]", tmp_msg);
-					AddMsgToChatWindow(tmp_msg, true);
-				}						
-				
-				if (!StrBegins(next_msg, "CMDERROR ")) {
-					sscanf(next_msg, "CMDERROR %[^\n]", tmp_msg);
-					AddMsgToChatWindow(tmp_msg, true);
-				}
-				
-				if (!StrBegins(next_msg, "CHANGECHANNELERROR ")) {
-					sscanf(next_msg, "CHANGECHANNELERROR %[^\n]", tmp_msg);
-					AddMsgToChatWindow(tmp_msg, true);
-				}				
-				
-				if (!StrBegins(next_msg, "CHANGENICKERROR ")) {
-					sscanf(next_msg, "CHANGENICKERROR %[^\n]", tmp_msg);
-					AddMsgToChatWindow(tmp_msg, true);
-				}				
-			
-				if (!StrBegins(next_msg, "CHANMSGERROR ")) {
-					sscanf(next_msg, "CHANMSGERROR %[^\n]", tmp_msg);
-					AddMsgToChatWindow(tmp_msg, true);
-				}
-				
-				if (!StrBegins(next_msg, "PRIVMSGERROR ")) {
-					sscanf(next_msg, "PRIVMSGERROR %[^\n]", tmp_msg);
-					AddMsgToChatWindow(tmp_msg, true);
-				}					
-							
+				HandleMessageFromServer(next_msg);
 				// done with this token (message), let's move on to the next one
 				next_msg = strtok(NULL, "\n");
 			}
@@ -506,6 +381,138 @@ int main(int argc, char *argv[]) {
 	// close the socket
 	close(csock);	
 	return 0;
+}
+
+void HandleMessageFromServer(char *message_from_server) {
+	int i;
+	char tmp_msg[MAX_MSG_LENGTH+1];
+	char msg_for_window[MAX_MSG_LENGTH+1];
+	char tmp_nick1[MAX_NICK_LENGTH+1];
+	char tmp_nick2[MAX_NICK_LENGTH+1];
+	char tmp_buf[MAX_SOCKET_BUF];
+	char tmp_chan[MAX_CHANNEL_LENGTH+1];
+
+	if (!StrBegins(message_from_server, "CHANMSGFROM ")) {
+		// we process the message from the server
+		// NewLines are never sent by the server, we use %[^\n] to read whitespaces in the string too
+		sscanf(message_from_server, "CHANMSGFROM %s %[^\n]", tmp_nick1, tmp_msg);
+		for (i=0; i<MAX_IGNORES ; i++) {
+			if (!strcmp(ignored_nicks[i],tmp_nick1)) {
+				#ifdef DEBUG
+				AddMsgToChatWindow("Ignored a channel message.", true);
+				#endif
+				return;
+			}
+		}
+		
+		// if sender wasn't on ignore, print the received message on the screen in the finalized format
+		// this is where we print accepted channel messages
+		if (i==MAX_IGNORES) {
+			sprintf(msg_for_window, "%s %s", tmp_nick1, tmp_msg);
+			AddMsgToChatWindow(msg_for_window, true);
+			return;
+		}
+	}
+	
+	if (!StrBegins(message_from_server, "PRIVMSGFROM ")) {
+		// we process the message from the server
+		sscanf(message_from_server, "PRIVMSGFROM %s %[^\n]", tmp_nick1, tmp_msg);
+		for (i=0; i<MAX_IGNORES ; i++) {
+			if (!strcmp(ignored_nicks[i],tmp_nick1)) {
+				#ifdef DEBUG
+				AddMsgToChatWindow("Ignored a private message.", true);
+				#endif
+				return;
+			}
+		}				
+		// if sender wasn't on ignore, print the received message on the screen in the finalized format
+		if (i==MAX_IGNORES)	{
+			sprintf(msg_for_window, "%s has sent you a private message:", tmp_nick1);
+			AddMsgToChatWindow(msg_for_window, true);
+			sprintf(msg_for_window, "          %s", tmp_msg);
+			AddMsgToChatWindow(msg_for_window, false);
+		}
+	}
+	
+	if (!StrBegins(message_from_server, "PRIVMSGOK ")) {
+		sscanf(message_from_server, "PRIVMSGOK %s %[^\n]", tmp_nick1, tmp_msg);
+		sprintf(msg_for_window, "you sent a private message to %s:", tmp_nick1);
+		AddMsgToChatWindow(msg_for_window, true);
+		sprintf(msg_for_window, "          %s", tmp_msg);
+		AddMsgToChatWindow(msg_for_window, false);					
+	}				
+	
+	if (!StrBegins(message_from_server, "CHANGENICKOK ")) {
+		sscanf(message_from_server, "CHANGENICKOK %[^\n]", tmp_nick1);
+		sprintf(msg_for_window, "Your nick is now %s.", tmp_nick1);
+		AddMsgToChatWindow(msg_for_window, true);
+	}				
+	
+	if (!StrBegins(message_from_server, "CHANUPDATECHANGENICK ")) {
+		sscanf(message_from_server, "CHANUPDATECHANGENICK %s %[^\n]", tmp_nick1, tmp_nick2);
+		sprintf(msg_for_window, "%s is now known as %s", tmp_nick1, tmp_nick2);
+		AddMsgToChatWindow(msg_for_window, true);
+	}	
+	
+	if (!StrBegins(message_from_server, "CHANGECHANNELOK ")) {
+		sscanf(message_from_server, "CHANGECHANNELOK %[^\n]", tmp_chan);
+		sprintf(msg_for_window, "You are now chatting in channel %s.", tmp_chan);
+		AddMsgToChatWindow(msg_for_window, true);
+	}
+	
+	if (!StrBegins(message_from_server, "CHANUPDATEJOIN ")) {
+		sscanf(message_from_server, "CHANUPDATEJOIN %[^\n]", tmp_nick1);
+		sprintf(msg_for_window, "%s has joined the channel.", tmp_nick1);
+		AddMsgToChatWindow(msg_for_window, true);
+	}
+	
+
+	if (!StrBegins(message_from_server, "CHANUPDATELEAVE ")) {
+		sscanf(message_from_server, "CHANUPDATELEAVE %[^\n]", tmp_nick1);
+		sprintf(msg_for_window, "%s has left the channel.", tmp_nick1);
+		AddMsgToChatWindow(msg_for_window, true);
+	}
+	
+	if (!StrBegins(message_from_server, "CHANUPDATEALLNICKS ")) {
+		sscanf(message_from_server, "CHANUPDATEALLNICKS %[^\n]", tmp_buf);
+		UpdateNicklist(tmp_buf);
+	}
+	
+	if (!StrBegins(message_from_server, "CHANGEPASSOK ")) {
+		sscanf(message_from_server, "CHANGEPASSOK %[^\n]", tmp_nick1);
+		sprintf(msg_for_window, "Password for %s has been saved.", tmp_nick1);
+		AddMsgToChatWindow(msg_for_window, true);
+	}
+
+	if (!StrBegins(message_from_server, "CHANGEPASSERROR ")) {
+		sscanf(message_from_server, "CHANGEPASSERROR %[^\n]", tmp_msg);
+		AddMsgToChatWindow(tmp_msg, true);
+	}						
+	
+	if (!StrBegins(message_from_server, "CMDERROR ")) {
+		sscanf(message_from_server, "CMDERROR %[^\n]", tmp_msg);
+		AddMsgToChatWindow(tmp_msg, true);
+	}
+	
+	if (!StrBegins(message_from_server, "CHANGECHANNELERROR ")) {
+		sscanf(message_from_server, "CHANGECHANNELERROR %[^\n]", tmp_msg);
+		AddMsgToChatWindow(tmp_msg, true);
+	}				
+	
+	if (!StrBegins(message_from_server, "CHANGENICKERROR ")) {
+		sscanf(message_from_server, "CHANGENICKERROR %[^\n]", tmp_msg);
+		AddMsgToChatWindow(tmp_msg, true);
+	}				
+
+	if (!StrBegins(message_from_server, "CHANMSGERROR ")) {
+		sscanf(message_from_server, "CHANMSGERROR %[^\n]", tmp_msg);
+		AddMsgToChatWindow(tmp_msg, true);
+	}
+	
+	if (!StrBegins(message_from_server, "PRIVMSGERROR ")) {
+		sscanf(message_from_server, "PRIVMSGERROR %[^\n]", tmp_msg);
+		AddMsgToChatWindow(tmp_msg, true);
+	}
 }
 
 WINDOW *create_newwin(int height, int width, int starty, int startx)
