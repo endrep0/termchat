@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <errno.h>
 #include <openssl/evp.h>
 #include "termchatcommon.h"
 #include <signal.h>
@@ -88,6 +89,7 @@ void ProcessClientChanMsg(int clientindex, const char *chan_msg);
 void ProcessClientPrivMsg(int clientindex, const char *priv_msg);
 void QuitGracefully(int signum);
 int LoadPasswordsFromDisk(void);
+int SavePasswordsToDisk(void);
 
 // this array will hold the connected client sockets
 //int connected_client_socks[MAX_CHAT_CLIENTS];
@@ -330,7 +332,6 @@ int main() {
 	}
 	
 	// initilaize the saved passwords db
-	// TODO from file
 	for (i=0; i<MAX_SAVED_PASSWORDS; i++) {
 		bzero(passwords[i].nickname, MAX_NICK_LENGTH);
 		bzero(passwords[i].password_sha512, 129);
@@ -338,7 +339,7 @@ int main() {
 	
 	// load passwords from disk
 	if (LoadPasswordsFromDisk())
-		printf("Failed to open termchatpasswd file.\n");
+		printf("Failed to to read passwords from file.\n");
 	
 	
 	// register new handler for SIGTERM: QuitGracefully()
@@ -693,9 +694,12 @@ void ProcessClientChangePass(int clientindex, const char *cmd_msg) {
 		// if we got this far, he isn't in the pass db, let's look for a free spot
 		for (i=0; i<MAX_SAVED_PASSWORDS; i++) {
 			if (strlen(passwords[i].nickname)==0) {
-				// we found a free spot
+				// we found a free spot, let's update save his password
 				strcpy(passwords[i].nickname, chat_clients[clientindex].nickname);
 				strcpy(passwords[i].password_sha512, newpass_sha512);
+				// update the passwords file on the disk too
+				if (SavePasswordsToDisk())
+						printf("Failed to open termchatpasswd file for saving passwords to disk!\n");
 				sprintf(reply, "CHANGEPASSOK %s\n", chat_clients[clientindex].nickname);
 				send(chat_clients[clientindex].socket, reply, strlen(reply), 0);				
 				return;
@@ -825,26 +829,57 @@ int CountParams(const char *cmd) {
 
 }
 
-// if we receive a SIGTERM signal, write our password db to file
+// if we receive a SIGTERM signal, send a quit message
 void QuitGracefully(int signum) {
+	printf("Termchatserver was terminated. Goodbye!\n");
+	exit(signum);
+}
+
+
+// will save passwords to disk
+// format for each password line: nickname passwordsha512\n
+// if problem arises, -1 will be returned
+int SavePasswordsToDisk(void) {
 	int fd;
+	int characters_written;
 	fd = open("termchatpasswd", O_CREAT | O_TRUNC | O_WRONLY, 0600);
 	if (fd < 0) {
-		printf("Failed to open termchatpasswd file for saving passwords to disk!\n");
+		perror("open");		
+		return -1;
 
 	}
 	
 	// go through password db
 	for (i=0; i<MAX_SAVED_PASSWORDS; i++) {
 		if (strlen(passwords[i].nickname)!=0) {
-			write(fd, passwords[i].nickname, MAX_NICK_LENGTH);
-			write(fd, " ", 1);
-			write(fd, passwords[i].password_sha512, 128);
-			write(fd, "\n", 1);
+			// write the nickname
+			characters_written = write(fd, passwords[i].nickname, MAX_NICK_LENGTH);
+			if (characters_written == -1) {
+				perror("write");
+				return -1;
+			}
+			// a space
+			characters_written = write(fd, " ", 1);
+			if (characters_written == -1) {
+				perror("write");
+				return -1;
+			}
+			// the pass sha512 hex value
+			characters_written = write(fd, passwords[i].password_sha512, 128);
+			if (characters_written == -1) {
+				perror("write");
+				return -1;
+			}
+			// new line character
+			characters_written = write(fd, "\n", 1);
+			if (characters_written == -1) {
+				perror("write");
+				return -1;
+			}			
 		}
 	}
 	close(fd);
-	exit(signum);
+	return(0);
 }
 
 
@@ -855,19 +890,27 @@ int LoadPasswordsFromDisk(void) {
 	char nickname_from_file[MAX_NICK_LENGTH];
 	char password_sha512_from_file[129];
 	char tmp_character[1];
-	int characters_read = 1;
+	int characters_read;
 	int currently_processing = 0;
 
 	fd = open("termchatpasswd",  O_RDONLY);
 	if (fd < 0) {
+		perror("open");
 		return -1;
 	}
 
-	while ( currently_processing < MAX_SAVED_PASSWORDS) {	
+	while ( currently_processing < MAX_SAVED_PASSWORDS ) {
 		// read a nickname
 		characters_read = read(fd, nickname_from_file, MAX_NICK_LENGTH);
-		if (characters_read < 1)
+		// error
+		if (characters_read == -1) {
+			perror("read");
+			return -1;
+		}
+		// end of file
+		if (characters_read == 0) {
 			break;
+		}
 		nickname_from_file[MAX_NICK_LENGTH-1]='\0';
 		#ifdef DEBUG
 		printf("Read nick from termchatpasswd file: %s\n", nickname_from_file);
@@ -875,13 +918,27 @@ int LoadPasswordsFromDisk(void) {
 
 		// read the space separator
 		characters_read = read(fd, tmp_character, 1);
-		if (characters_read < 1)
-			break;	  
+		// error
+		if (characters_read == -1) {
+			perror("read");
+			return -1;			
+		}
+		// end of file
+		if (characters_read == 0) {
+			break;
+		}  
 
 		// read the password sha512 hex string
 		characters_read = read(fd, password_sha512_from_file, 128);
-		if (characters_read < 1)
-			break;	  
+		// error
+		if (characters_read == -1) {
+			perror("read");
+			return -1;			
+		}
+		// end of file
+		if (characters_read == 0) {
+			break;
+		}
 		password_sha512_from_file[128]='\0';
 		#ifdef DEBUG		
 		printf("Read hash from termchatpasswd file: %s\n", password_sha512_from_file);
@@ -889,8 +946,15 @@ int LoadPasswordsFromDisk(void) {
 
 		// read the new line character
 		characters_read = read(fd, tmp_character, 1);
-		if (characters_read < 1)
+		// error
+		if (characters_read == -1) {
+			perror("read");
+			return -1;			
+		}
+		// end of file
+		if (characters_read == 0) {
 			break;
+		}
 		
 		// we managed to read a complete line from the termchatpasswd line
 		// add it to memory
