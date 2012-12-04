@@ -15,13 +15,10 @@
 #include "termchatserver.h"
 
 int server_socket;
-char buffer[MAX_SOCKET_BUF];
-char msg_to_send[MAX_SOCKET_BUF];
-char reply[MAX_SOCKET_BUF];
-// for custom behavior on SIGTERM
-struct sigaction new_signal_action;
 // sockets to give to select
 fd_set socks_to_process;
+// for custom behavior on SIGTERM
+struct sigaction new_signal_action;
 // for storing the connected clients' data
 chat_client_t chat_clients[MAX_CHAT_CLIENTS];
 // saved nick passwords (hashes)
@@ -223,7 +220,8 @@ void HandleNewConnection(void) {
 void ProcessPendingRead(int clientindex)
 {
 	int bytes_read;
-	//int i;
+	char buffer[MAX_SOCKET_BUF];
+	char reply[MAX_SOCKET_BUF];
 	
 	do {
 		// fill buffer with zeros
@@ -329,100 +327,101 @@ void ProcessSocketsToRead() {
 // some reply examples:
 //  CHANGENICKOK newnick
 void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
-		char newnick[MAX_NICK_LENGTH+1];
-		char password_sha512[129];
-		int i;
-		int password_is_sent=FALSE;
-		
-		// reset reply string		
-		bzero(reply, MAX_SOCKET_BUF);
-		
-		// get the new nick from the parameters, and also password if it's there
-		if (CountParams(cmd_msg) == 1)
-			sscanf(cmd_msg, "CHANGENICK %s", newnick);
-		else if (CountParams(cmd_msg) == 2) {
-			sscanf(cmd_msg, "CHANGENICK %s %[^/n]", newnick, password_sha512);
-			password_is_sent=TRUE;
-			}
-		else {
-			sprintf(reply, "CHANGENICKERROR Wrong syntax in nick change command.\n");
+	char reply[MAX_SOCKET_BUF];
+	char newnick[MAX_NICK_LENGTH+1];
+	char password_sha512[129];
+	int i;
+	int password_is_sent=FALSE;
+	
+	// reset reply string		
+	bzero(reply, MAX_SOCKET_BUF);
+	
+	// get the new nick from the parameters, and also password if it's there
+	if (CountParams(cmd_msg) == 1)
+		sscanf(cmd_msg, "CHANGENICK %s", newnick);
+	else if (CountParams(cmd_msg) == 2) {
+		sscanf(cmd_msg, "CHANGENICK %s %[^/n]", newnick, password_sha512);
+		password_is_sent=TRUE;
+		}
+	else {
+		sprintf(reply, "CHANGENICKERROR Wrong syntax in nick change command.\n");
+		send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
+		return;
+	}
+	
+	if (strlen(newnick)>MAX_NICK_LENGTH) {
+			sprintf(reply, "CHANGENICKERROR Nick is too long.\n");
+			send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
+			return;
+	}
+	
+	// if client already set a nick before, let's check if this nick is different
+	if (chat_clients[clientindex].status != WAITING_FOR_NICK ) {
+		if (!strcmp(newnick, chat_clients[clientindex].nickname)) {
+			sprintf(reply, "CHANGENICKERROR Your nickname is already %s.\n", newnick);
 			send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
 			return;
 		}
-		
-		if (strlen(newnick)>MAX_NICK_LENGTH) {
-				sprintf(reply, "CHANGENICKERROR Nick is too long.\n");
-				send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
-				return;
-		}
-		
-		// if client already set a nick before, let's check if this nick is different
-		if (chat_clients[clientindex].status != WAITING_FOR_NICK ) {
-			if (!strcmp(newnick, chat_clients[clientindex].nickname)) {
-				sprintf(reply, "CHANGENICKERROR Your nickname is already %s.\n", newnick);
-				send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
-				return;
-			}
-		}
-		
-		// check if nick is taken
-		for (i=0; i<MAX_CHAT_CLIENTS; i++) {
-			if (!strcmp(newnick, chat_clients[i].nickname)) {
-				sprintf(reply, "CHANGENICKERROR The %s nickname is already taken.\n", newnick);
-				send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
-				return;
-			}
-		}
-		
-		// ok, it wasn't taken
-		// let's see if it is a password-protected nick
-		for (i=0; i<MAX_SAVED_PASSWORDS; i++) {
-			// let's see if this nick is in the password db
-			if ( strlen(passwords[i].nickname) > 0 && !strcmp(passwords[i].nickname, newnick)) {
-				// yes it's protected. if password wasn't sent, bad luck
-				if (!password_is_sent) {
-					sprintf(reply, "CHANGENICKERROR Nick is password protected, please include pass.\n");
-					send(chat_clients[clientindex].socket, reply, strlen(reply), 0);					
-					return;
-				}
-				// they sent a password, now let's compare
-				else {
-					if (strcmp(passwords[i].password_sha512, password_sha512)) {
-						// doesn't match
-						sprintf(reply, "CHANGENICKERROR Wrong password.\n");
-						send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
-						return;
-					}	
-				}
-				break;
-			}
-		}
-		
-		// if we got this far, nickname wasn't password protected, or the sent password was correct
-		// so we can go ahead with the nick change
+	}
 	
-		// send the current nick updates to the other people in the channel
-		// CHANUPDATECHNICK oldnick newnick
-		for (i=0; i<MAX_CHAT_CLIENTS; i++) {
-			if ( i!=clientindex && chat_clients[i].status == CHATTING && !strcmp(chat_clients[clientindex].channel, chat_clients[i].channel) ) {
-				sprintf(reply, "CHANUPDATECHANGENICK %s %s\n", chat_clients[clientindex].nickname, newnick);
-				send(chat_clients[i].socket, reply, strlen(reply), 0);
-			}
+	// check if nick is taken
+	for (i=0; i<MAX_CHAT_CLIENTS; i++) {
+		if (!strcmp(newnick, chat_clients[i].nickname)) {
+			sprintf(reply, "CHANGENICKERROR The %s nickname is already taken.\n", newnick);
+			send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
+			return;
 		}
-		
-		// now we can change the nick of the person
-		strcpy(chat_clients[clientindex].nickname, newnick);
-		// only have to change status if client hasn't had a nick before
-		if ( WAITING_FOR_NICK == chat_clients[clientindex].status )
-			chat_clients[clientindex].status = HAS_NICK_WAITING_FOR_CHANNEL;
-		sprintf(reply, "CHANGENICKOK %s\n", newnick);
-		send(chat_clients[clientindex].socket, reply, strlen(reply), 0);			
-		
-		// send the updated nick lists to people in the channel (also to the new joiner themselves)
-		// when the client will be smarter and will handle CHANUPDATECHNICK better, this won't be needed
-		// then we will need to send the complete nicklist only to the new joiner
-		if ( strlen(chat_clients[clientindex].channel) > 0 ) 
-			BroadcastChanNicklist(chat_clients[clientindex].channel);
+	}
+	
+	// ok, it wasn't taken
+	// let's see if it is a password-protected nick
+	for (i=0; i<MAX_SAVED_PASSWORDS; i++) {
+		// let's see if this nick is in the password db
+		if ( strlen(passwords[i].nickname) > 0 && !strcmp(passwords[i].nickname, newnick)) {
+			// yes it's protected. if password wasn't sent, bad luck
+			if (!password_is_sent) {
+				sprintf(reply, "CHANGENICKERROR Nick is password protected, please include pass.\n");
+				send(chat_clients[clientindex].socket, reply, strlen(reply), 0);					
+				return;
+			}
+			// they sent a password, now let's compare
+			else {
+				if (strcmp(passwords[i].password_sha512, password_sha512)) {
+					// doesn't match
+					sprintf(reply, "CHANGENICKERROR Wrong password.\n");
+					send(chat_clients[clientindex].socket, reply, strlen(reply), 0);
+					return;
+				}	
+			}
+			break;
+		}
+	}
+	
+	// if we got this far, nickname wasn't password protected, or the sent password was correct
+	// so we can go ahead with the nick change
+
+	// send the current nick updates to the other people in the channel
+	// CHANUPDATECHNICK oldnick newnick
+	for (i=0; i<MAX_CHAT_CLIENTS; i++) {
+		if ( i!=clientindex && chat_clients[i].status == CHATTING && !strcmp(chat_clients[clientindex].channel, chat_clients[i].channel) ) {
+			sprintf(reply, "CHANUPDATECHANGENICK %s %s\n", chat_clients[clientindex].nickname, newnick);
+			send(chat_clients[i].socket, reply, strlen(reply), 0);
+		}
+	}
+	
+	// now we can change the nick of the person
+	strcpy(chat_clients[clientindex].nickname, newnick);
+	// only have to change status if client hasn't had a nick before
+	if ( WAITING_FOR_NICK == chat_clients[clientindex].status )
+		chat_clients[clientindex].status = HAS_NICK_WAITING_FOR_CHANNEL;
+	sprintf(reply, "CHANGENICKOK %s\n", newnick);
+	send(chat_clients[clientindex].socket, reply, strlen(reply), 0);			
+	
+	// send the updated nick lists to people in the channel (also to the new joiner themselves)
+	// when the client will be smarter and will handle CHANUPDATECHNICK better, this won't be needed
+	// then we will need to send the complete nicklist only to the new joiner
+	if ( strlen(chat_clients[clientindex].channel) > 0 ) 
+		BroadcastChanNicklist(chat_clients[clientindex].channel);
 }
 
 
@@ -433,12 +432,14 @@ void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
 // the client will get a CHANGECHANNELOK on success, and a list of others in the new channel
 void ProcessClientChangeChan(int clientindex, const char *cmd_msg) {
 	int i;
+	char reply[MAX_SOCKET_BUF];
+	char msg_to_send[MAX_SOCKET_BUF];
 	// reset reply string
 	bzero(reply, MAX_SOCKET_BUF);
 	
 	// can't join channel without a nickname
 	if (chat_clients[clientindex].status == WAITING_FOR_NICK) {
-		sprintf(msg_to_send, "CHANGECHANNELERROR Please set a nickname before joining a channel.\n");
+		sprintf(msg_to_send, "CHANGECHANNELERROR Please set a nickname first.\n");
 		send(chat_clients[clientindex].socket, msg_to_send, strlen(msg_to_send), 0);
 		return;
 	}
@@ -498,6 +499,7 @@ void ProcessClientChangeChan(int clientindex, const char *cmd_msg) {
 // if too many nicks are in the channel, multiple CHANUPDATEALLNICKS messages will be sent
 void BroadcastChanNicklist(const char* channel) {
 	int i, j;
+	char reply[MAX_SOCKET_BUF];	
 	sprintf(reply, "CHANUPDATEALLNICKS");	
 	// gather all nicks in the new channel
 	for (i=0; i<MAX_CHAT_CLIENTS; i++) {
@@ -546,6 +548,7 @@ void BroadcastChanNicklist(const char* channel) {
 //  CHANGEPASSERROR You cannot set a nickname password without a nickname. Please set a nick first.
 void ProcessClientChangePass(int clientindex, const char *cmd_msg) {
 	int i;
+	char reply[MAX_SOCKET_BUF];
 	// reset reply string
 	bzero(reply, MAX_SOCKET_BUF);
 	char newpass_sha512[129];
@@ -598,12 +601,13 @@ void ProcessClientChangePass(int clientindex, const char *cmd_msg) {
 // if we cannot accept the channel message, then we send a CHANMSGERROR
 void ProcessClientChanMsg(int clientindex, const char *chan_msg) {
 	int i;
+	char msg_to_send[MAX_SOCKET_BUF];
 	// reset msg_to_send string
 	bzero(msg_to_send, MAX_SOCKET_BUF);	
 	
 	// we don't accept channel messages, if the client hasn't set a nickname yet
 	if (chat_clients[clientindex].status == WAITING_FOR_NICK) {
-		sprintf(msg_to_send, "CHANMSGERROR Please set a nickname, and set the channel first.\n");
+		sprintf(msg_to_send, "CHANMSGERROR Please set a nickname & channel first.\n");
 		send(chat_clients[clientindex].socket, msg_to_send, strlen(msg_to_send), 0);
 		return;
 		}
@@ -641,7 +645,7 @@ void ProcessClientPrivMsg(int clientindex, const char *priv_msg) {
 	int i;
 	char target_nick[MAX_NICK_LENGTH+1];
 	char message[MAX_MSG_LENGTH+1];
-	
+	char msg_to_send[MAX_SOCKET_BUF];
 	// reset msg_to_send string
 	bzero(msg_to_send, MAX_SOCKET_BUF);	
 	
@@ -677,6 +681,7 @@ void ProcessClientPrivMsg(int clientindex, const char *priv_msg) {
 // it pads all messages with the message separator; \n
 // returns 0 if all ok, -1 if there was a problem
 int SendMsgToClient(int clientindex, const char *msg) {
+	char msg_to_send[MAX_SOCKET_BUF];
 	// each message needs to characters as the message separators, which needs to fit in MAX_SOCKET_BUF
 	if (strlen(msg) > (MAX_SOCKET_BUF-2))
 		return -1;
