@@ -278,8 +278,8 @@ void HandleKeypress(int input_character, char *user_command) {
 			}
 		if (strstr(user_command,"/help")) {
 			AddMsgToChatWindow("Showing help:", false);
-			AddMsgToChatWindow(" protecting your nick on this server with a password: /pass <password>", false);
-			AddMsgToChatWindow(" changing your nick: /nick <newnick> [password]", false);
+			AddMsgToChatWindow(" protecting your nick on the server: /pass <pass>", false);
+			AddMsgToChatWindow(" changing your nick: /nick <newnick> [pass]", false);
 			AddMsgToChatWindow(" changing channel: /channel <newchannel>", false);
 			AddMsgToChatWindow(" private message: /msg <nick> <message>", false);
 			AddMsgToChatWindow(" ignoring someone: /ignore nick", false);
