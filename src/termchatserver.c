@@ -879,6 +879,9 @@ int SavePasswordsToDisk(void) {
 		}
 	}
 	close(fd);
+	#ifdef DEBUG		
+	printf("Written the termchatpasswd file.\n");
+	#endif			
 	return(0);
 }
 
