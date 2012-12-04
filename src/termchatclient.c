@@ -25,53 +25,95 @@ int input_win_startx, input_win_starty, input_win_width, input_win_height;
 int chat_win_startx, chat_win_starty, chat_win_width, chat_win_height, chat_win_currenty, chat_win_currentx;
 
 char chat_window_buffer[CHAT_WINDOW_BUFFER_MAX_LINES][MAX_MSG_LENGTH];
+// for saving what position of the chat_window_buffer we show; this is needed for scrolling
+// we visualize different parts of the buffer when scrolling up/down
+// they won't be used until first line is added to the chat_window_buffer, and then we will be showing index[0]-index[0]
 int chat_window_buffer_last_element_index;
 int chat_window_currently_showing_first;
 int chat_window_currently_showing_last;
 
-// other stuff
+// network & other stuff
 int csock;
+struct addrinfo hints;
+struct addrinfo* res;
 char ignored_nicks[MAX_IGNORES][MAX_NICK_LENGTH+1];
 	
 int main(int argc, char *argv[]) {
 	int i;
-	struct addrinfo hints;
-	struct addrinfo* res;
-	int err;
-	// protocol limit for the message length
-	char user_command[MAX_MSG_LENGTH+1];	
+	// user command being typed will be built in this string character by character
+	char user_command[MAX_MSG_LENGTH+1];
 	int user_input_char;
 	char buffromserver[MAX_SOCKET_BUF];
 	int lenfromserver;
-
-	// initialize chat window buffer
+	
+	// initialize chat window buffer state, user_command string, and the ignored nicks array
 	chat_window_buffer_last_element_index=-1;
-	// for scrolling with keyboard
-	
-	// for saving what position of the chat_window_buffer we show; this is needed for scrolling
-	// we visualize different parts of the buffer when scrolling up/down
-	// they won't be used until first line is added to the chat_window_buffer, and then we will be showing index[0]-index[0]
-	chat_window_currently_showing_first=0;
-	chat_window_currently_showing_last=0;
-		
-	
-	//reset ignored nicks array
+	bzero(user_command,MAX_MSG_LENGTH);
 	for (i=0; i<MAX_IGNORES; i++)
-		bzero(ignored_nicks[i],MAX_NICK_LENGTH);
+		bzero(ignored_nicks[i],MAX_NICK_LENGTH);	
 
 	// did we get a server as parameter
 	if(argc != 3) {
 		printf("Usage: %s <chat server IP> <port>\n", argv[0]);
 		return -1;
 	}
+	
+	if (ConnectToServer(argv[1], argv[2])) {
+		return -1;
+	}
 
+	// ok we are connected, let's init the display
+	// quit if failed
+	if (InitCursesDisplay()) {
+		CloseServerConnection();
+		return -1;
+	}
+
+	// main loop, let's read user input character by character, until it's too long or we get a NewLine
+	// wgetch should time out after 50ms, giving a chance to the main loop to read network data, even if there's no user interaction
+	wtimeout(input_win, 50);
+	
+	while(1)
+	{	
+		if ((user_input_char=wgetch(input_win)) != ERR) {
+			HandleKeypress(user_input_char, user_command);
+		}
+		
+		// we handled the keyboard input, now let's check if we have anything from the chat server		
+		// reset the previous buffer state, in which we will read the server msg
+		bzero(buffromserver, MAX_SOCKET_BUF);
+		// we can recv() without blocking, as csock is set to non-blocking
+		if ((lenfromserver = recv(csock, buffromserver, MAX_SOCKET_BUF, 0)) > 0) {			
+			// because of the stream behavior, buffromserver can have more than one messages from the server
+			// these are separated by '\n', as per the protocol specification
+			// we will tokenize buffromserver with separator '\n', and process each message one by one
+			char *next_msg;
+			next_msg = strtok(buffromserver, "\n");
+			while (next_msg != NULL) {
+				HandleMessageFromServer(next_msg);
+				// done with this token (message), let's move on to the next one
+				next_msg = strtok(NULL, "\n");
+			}
+		}
+
+	}
+	
+	EndCursesDisplay();
+	CloseServerConnection();
+	return 0;
+}
+
+// connect to server
+// return -1 if fails
+int ConnectToServer(char *host, char *port) {
+	int err;
 	// support both IPv4 and IPv6
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
 
 	// resolve address, and print any errors to stderr
-	err = getaddrinfo(argv[1], argv[2], &hints, &res);
+	err = getaddrinfo(host, port, &hints, &res);
 	if(err != 0) {
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(err));
 		freeaddrinfo(res);
@@ -98,55 +140,14 @@ int main(int argc, char *argv[]) {
 	// set the socket to non-blocking, we can read it even if its empty, without blocking
 	SetNonblocking(csock);
 	
-	// ok we are connected, let's init the display
-	// quit if failed
-	if (InitCursesDisplay()) {
-		// free the addrinfo struct
-		freeaddrinfo(res);
-		// close the socket
-		close(csock);			
-		return -1;
-	}
+	return 0;
+}
 
-
-	// main loop, let's read user input character by character, until it's too long or we get a NewLine
-	// wgetch should time out after 50ms, giving a chance to the main loop to read network data, even if there's no user interaction
-	wtimeout(input_win, 50);
-	
-	// reset user command string
-	bzero(user_command,MAX_MSG_LENGTH);
-
-	while(1)
-	{	
-		if ((user_input_char=wgetch(input_win)) != ERR) {
-			HandleKeypress(user_input_char, user_command);
-		}
-		
-		// we handled the keyboard input, now let's check if we have anything from the chat server		
-		// reset the previous buffer state, in which we will read the server msg
-		bzero(buffromserver, MAX_SOCKET_BUF);
-		// we can recv() without blocking, as csock is set to non-blocking
-		if ((lenfromserver = recv(csock, buffromserver, MAX_SOCKET_BUF, 0)) > 0) {			
-			// because of the stream behavior, buffromserver can have more than one messages from the server
-			// these are separated by '\n', as per the protocol specification
-			// we will tokenize buffromserver with separator '\n', and process each message one by one
-			char *next_msg;
-			next_msg = strtok(buffromserver, "\n");
-			while (next_msg != NULL) {
-				HandleMessageFromServer(next_msg);
-				// done with this token (message), let's move on to the next one
-				next_msg = strtok(NULL, "\n");
-			}
-		}
-
-	}
-	// free curses stuff
-	EndCursesDisplay();
+void CloseServerConnection(void) {
 	// free the addrinfo struct
 	freeaddrinfo(res);
 	// close the socket
-	close(csock);	
-	return 0;
+	close(csock);		
 }
 
 // init the display
@@ -270,8 +271,11 @@ void HandleKeypress(int input_character, char *user_command) {
 		// let's close the string
 		user_command[current_char]='\0';
 		
-		if (strstr(user_command,"/exit") || strstr(user_command,"/quit")  )
-			return;
+		if (strstr(user_command,"/exit") || strstr(user_command,"/quit")  ) {
+			EndCursesDisplay();
+			CloseServerConnection();
+			exit(0);
+			}
 		if (strstr(user_command,"/help")) {
 			AddMsgToChatWindow("Showing help:", false);
 			AddMsgToChatWindow(" protecting your nick on this server with a password: /pass <password>", false);
