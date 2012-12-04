@@ -28,6 +28,7 @@ void ProcessSocketsToRead(void);
 int SendMsgToClient(int clientindex, const char *msg);
 void ProcessClientChangeNick(int clientindex, const char *cmd_msg);
 void ProcessClientChangeChan(int clientindex, const char *cmd_msg);
+void BroadcastChanNicklist(const char* channel);
 void ProcessClientChangePass(int clientindex, const char *cmd_msg);
 void ProcessClientChanMsg(int clientindex, const char *chan_msg);
 void ProcessClientPrivMsg(int clientindex, const char *priv_msg);

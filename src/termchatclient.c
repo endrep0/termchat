@@ -31,7 +31,6 @@ int chat_window_currently_showing_last;
 
 int main(int argc, char *argv[]) {
 	int i;
-	// network variables
 	struct addrinfo hints;
 	struct addrinfo* res;
 	int err;
@@ -391,7 +390,7 @@ int main(int argc, char *argv[]) {
 						if (!strcmp(ignored_nicks[i],tmp_nick1)) {
 							#ifdef DEBUG
 							AddMsgToChatWindow("Ignored a private message.", true);
-							#endif							
+							#endif
 							break;
 						}
 					}				
@@ -417,33 +416,33 @@ int main(int argc, char *argv[]) {
 				if (!StrBegins(next_msg, "CHANUPDATECHANGENICK ")) {
 					sscanf(next_msg, "CHANUPDATECHANGENICK %s %[^\n]", tmp_nick1, tmp_nick2);
 					sprintf(msg_for_window, "%s is now known as %s", tmp_nick1, tmp_nick2);
-					AddMsgToChatWindow(msg_for_window, true);					
+					AddMsgToChatWindow(msg_for_window, true);
 				}	
 				
 				if (!StrBegins(next_msg, "CHANGECHANNELOK ")) {
 					sscanf(next_msg, "CHANGECHANNELNELOK %[^\n]", tmp_chan);
 					sprintf(msg_for_window, "You are now chatting in channel %s.", tmp_chan);
-					AddMsgToChatWindow(msg_for_window, true);				
+					AddMsgToChatWindow(msg_for_window, true);
 				}
 				
 				if (!StrBegins(next_msg, "CHANUPDATEJOIN ")) {
 					sscanf(next_msg, "CHANUPDATEJOIN %[^\n]", tmp_nick1);
 					sprintf(msg_for_window, "%s has joined the channel.", tmp_nick1);
-					AddMsgToChatWindow(msg_for_window, true);					
+					AddMsgToChatWindow(msg_for_window, true);
 				}
 				
 
 				if (!StrBegins(next_msg, "CHANUPDATELEAVE ")) {
 					sscanf(next_msg, "CHANUPDATELEAVE %[^\n]", tmp_nick1);
 					sprintf(msg_for_window, "%s has left the channel.", tmp_nick1);
-					AddMsgToChatWindow(msg_for_window, true);							
+					AddMsgToChatWindow(msg_for_window, true);
 				}
 				
 				if (!StrBegins(next_msg, "CHANUPDATEALLNICKS ")) {
 					sscanf(next_msg, "CHANUPDATEALLNICKS %[^\n]", tmp_buf);
-					//sprintf(msg_for_window, "People in this channel: %s", tmp_buf);
+					AddMsgToChatWindow(tmp_buf, true);
 					UpdateNicklist(tmp_buf);
-					//AddMsgToChatWindow(msg_for_window, true);						
+			
 				}
 				
 				if (!StrBegins(next_msg, "CHANGEPASSOK ")) {
@@ -458,27 +457,27 @@ int main(int argc, char *argv[]) {
 				}						
 				
 				if (!StrBegins(next_msg, "CMDERROR ")) {
-					sscanf(next_msg, "CMDERROR %[^\n]", tmp_msg);			
-					AddMsgToChatWindow(tmp_msg, true);						
+					sscanf(next_msg, "CMDERROR %[^\n]", tmp_msg);
+					AddMsgToChatWindow(tmp_msg, true);
 				}
 				
 				if (!StrBegins(next_msg, "CHANGECHANNELERROR ")) {
-					sscanf(next_msg, "CHANGECHANNELERROR %[^\n]", tmp_msg);			
+					sscanf(next_msg, "CHANGECHANNELERROR %[^\n]", tmp_msg);
 					AddMsgToChatWindow(tmp_msg, true);
 				}				
 				
 				if (!StrBegins(next_msg, "CHANGENICKERROR ")) {
-					sscanf(next_msg, "CHANGENICKERROR %[^\n]", tmp_msg);			
+					sscanf(next_msg, "CHANGENICKERROR %[^\n]", tmp_msg);
 					AddMsgToChatWindow(tmp_msg, true);
 				}				
 			
 				if (!StrBegins(next_msg, "CHANMSGERROR ")) {
-					sscanf(next_msg, "CHANMSGERROR %[^\n]", tmp_msg);			
+					sscanf(next_msg, "CHANMSGERROR %[^\n]", tmp_msg);
 					AddMsgToChatWindow(tmp_msg, true);
 				}
 				
 				if (!StrBegins(next_msg, "PRIVMSGERROR ")) {
-					sscanf(next_msg, "PRIVMSGERROR %[^\n]", tmp_msg);			
+					sscanf(next_msg, "PRIVMSGERROR %[^\n]", tmp_msg);
 					AddMsgToChatWindow(tmp_msg, true);
 				}					
 							
@@ -497,8 +496,6 @@ int main(int argc, char *argv[]) {
 	endwin();
 	// free the addrinfo struct
 	freeaddrinfo(res);
-	// TODO: add free also if we get term signal
-
 	// close the socket
 	close(csock);	
 	return 0;
