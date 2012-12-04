@@ -336,7 +336,7 @@ int main(int argc, char *argv[]) {
 // some reply examples:
 //  CHANGENICKOK newnick
 void ProcessClientChangeNick(int clientindex, const char *cmd_msg) {
-		char newnick[MAX_NICK_LENGTH];
+		char newnick[MAX_NICK_LENGTH+1];
 		char password_sha512[129];
 		int i;
 		int password_is_sent=FALSE;
@@ -469,8 +469,8 @@ void ProcessClientChangeChan(int clientindex, const char *cmd_msg) {
 			return;
 			}		
 
-			char old_channel[MAX_CHANNEL_LENGTH];
-			char new_channel[MAX_CHANNEL_LENGTH];
+			char old_channel[MAX_CHANNEL_LENGTH+1];
+			char new_channel[MAX_CHANNEL_LENGTH+1];
 			strcpy(old_channel, chat_clients[clientindex].channel);
 			sscanf(cmd_msg, "CHANGECHANNEL %s\n", new_channel);
 			
@@ -687,8 +687,8 @@ void ProcessClientChanMsg(int clientindex, const char *chan_msg) {
 // sender will get back a PRIVMSGOK targetnick message as an acknowledgement
 // or a PRIVMSGERROR error message
 void ProcessClientPrivMsg(int clientindex, const char *priv_msg) {	
-		char target_nick[MAX_NICK_LENGTH];
-		char message[MAX_MSG_LENGTH];
+		char target_nick[MAX_NICK_LENGTH+1];
+		char message[MAX_MSG_LENGTH+1];
 		
 		// reset msg_to_send string
 		bzero(msg_to_send, MAX_SOCKET_BUF);	
@@ -799,7 +799,7 @@ int SavePasswordsToDisk(void) {
 
 int LoadPasswordsFromDisk(void) {
 	int fd;
-	char nickname_from_file[MAX_NICK_LENGTH];
+	char nickname_from_file[MAX_NICK_LENGTH+1];
 	char password_sha512_from_file[129];
 	char tmp_character[1];
 	int characters_read;
@@ -823,7 +823,7 @@ int LoadPasswordsFromDisk(void) {
 		if (characters_read == 0) {
 			break;
 		}
-		nickname_from_file[MAX_NICK_LENGTH-1]='\0';
+		nickname_from_file[MAX_NICK_LENGTH]='\0';
 		#ifdef DEBUG
 		printf("Read nick from termchatpasswd file: %s\n", nickname_from_file);
 		#endif

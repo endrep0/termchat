@@ -38,18 +38,18 @@ int main(int argc, char *argv[]) {
 	int csock;
 	char buffromserver[MAX_SOCKET_BUF];
 	int lenfromserver;
-	char tmp_msg[MAX_MSG_LENGTH];
-	char msg_for_window[MAX_MSG_LENGTH];
-	char tmp_nick1[MAX_NICK_LENGTH];
-	char tmp_nick2[MAX_NICK_LENGTH];
-	char tmp_pass[MAX_PASS_LENGTH];
+	char tmp_msg[MAX_MSG_LENGTH+1];
+	char msg_for_window[MAX_MSG_LENGTH+1];
+	char tmp_nick1[MAX_NICK_LENGTH+1];
+	char tmp_nick2[MAX_NICK_LENGTH+1];
+	char tmp_pass[MAX_PASS_LENGTH+1];
 	char tmp_buf[MAX_SOCKET_BUF];
-	char tmp_chan[MAX_CHANNEL_LENGTH];
-	char ignored_nicks[MAX_IGNORES][MAX_NICK_LENGTH];
+	char tmp_chan[MAX_CHANNEL_LENGTH+1];
+	char ignored_nicks[MAX_IGNORES][MAX_NICK_LENGTH+1];
 
 	int user_input_char;
 	// protocol limit for the message length
-	char user_input_str[MAX_MSG_LENGTH];
+	char user_input_str[MAX_MSG_LENGTH+1];
 	// todo think this through	
 	// input limit may be reduced during runtime, if the user's terminal is too small
 	int current_char;
@@ -334,7 +334,7 @@ int main(int argc, char *argv[]) {
 
 			// it is not a backspace or newline character
 			// check the msg limit, don't allow user to write more
-			if (current_char==MAX_MSG_LENGTH-1) {
+			if (current_char==MAX_MSG_LENGTH) {
 				beep();
 				continue;
 			}
@@ -523,8 +523,8 @@ void AddMsgToChatWindow(const char* msg, int timestamped) {
 	// for printing time for msgs
 	time_t time_now;
 	char tmp_time[8];	
-	char tmp_msg[MAX_MSG_LENGTH];
-	char msg_to_print[MAX_MSG_LENGTH];
+	char tmp_msg[MAX_MSG_LENGTH+1];
+	char msg_to_print[MAX_MSG_LENGTH+1];
 	int i;
 	
 	// saving the current input window coordinates, to remember where the cursor was
