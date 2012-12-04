@@ -41,10 +41,8 @@ int main(int argc, char *argv[]) {
 	// protocol limit for the message length
 	char user_command[MAX_MSG_LENGTH+1];	
 	int user_input_char;
-
 	char buffromserver[MAX_SOCKET_BUF];
 	int lenfromserver;
-
 	int max_input_length = MAX_MSG_LENGTH;
 
 	// initialize chat window buffer
@@ -221,9 +219,9 @@ void HandleKeypress(int input_character, char *user_command) {
 	// handle backspace
 	if (input_character == KEY_BACKSPACE || input_character == 127) {
 		if (current_char > 0) {
-			current_char--;
 			getyx(input_win, saved_y, saved_x);
 			mvwprintw(input_win, saved_y, saved_x-1, " ");
+			user_command[current_char-1]='\0';
 			wmove(input_win, saved_y, saved_x-1);
 			wrefresh(input_win);
 		}
@@ -385,7 +383,6 @@ void HandleKeypress(int input_character, char *user_command) {
 	// let's save the input character into our input string
 	if (input_character!='\n') {
 		user_command[current_char]=input_character;
-		//current_char++;
 		wprintw(input_win, "%c", input_character);
 	}
 }
